@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Platform — Enterprise Test & Bug Management</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-0: #0d1117; --bg-1: #161b22; --bg-2: #21262d; --bg-3: #30363d;
+  --border: #30363d; --border-light: #484f58;
+  --text-0: #f0f6fc; --text-1: #c9d1d9; --text-2: #8b949e; --text-3: #6e7681;
+  --accent: #58a6ff; --accent-hover: #79c0ff; --accent-muted: #1f6feb;
+  --green: #3fb950; --green-bg: rgba(63,185,80,0.15);
+  --red: #f85149; --red-bg: rgba(248,81,73,0.15);
+  --yellow: #d29922; --yellow-bg: rgba(210,153,34,0.15);
+  --purple: #bc8cff; --purple-bg: rgba(188,140,255,0.15);
+  --orange: #f0883e; --orange-bg: rgba(240,136,62,0.15);
+  --cyan: #39d2c0;
+  --radius: 8px; --radius-sm: 4px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --transition: 0.2s ease;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg-0); color: var(--text-1); font-size: 14px; line-height: 1.5; overflow: hidden; height: 100vh; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+/* Login Screen */
+#loginScreen { display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, var(--bg-0) 0%, #0a1628 100%); }
+.login-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; padding: 40px; width: 400px; box-shadow: var(--shadow); }
+.login-card h1 { text-align: center; margin-bottom: 8px; color: var(--text-0); font-size: 24px; }
+.login-card .subtitle { text-align: center; color: var(--text-2); margin-bottom: 24px; }
+.login-card .logo { text-align: center; font-size: 48px; margin-bottom: 16px; }
+
+/* App Shell */
+#appShell { display: none; height: 100vh; flex-direction: column; }
+.top-bar { display: flex; align-items: center; padding: 0 16px; height: 48px; background: var(--bg-1); border-bottom: 1px solid var(--border); gap: 16px; flex-shrink: 0; }
+.top-bar .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-0); font-size: 15px; }
+.top-bar .brand span { font-size: 20px; }
+.top-bar nav { display: flex; gap: 2px; margin-left: 24px; }
+.top-bar nav button { background: none; border: none; color: var(--text-2); padding: 12px 14px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; transition: var(--transition); font-weight: 500; }
+.top-bar nav button:hover { color: var(--text-1); background: var(--bg-2); }
+.top-bar nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.top-bar .spacer { flex: 1; }
+.top-bar .user-info { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 13px; }
+.top-bar .user-info .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-muted); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 260px; background: var(--bg-1); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.sidebar-header h3 { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+.sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
+.suite-group { margin-bottom: 4px; }
+.suite-parent { display: flex; align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; gap: 6px; color: var(--text-1); user-select: none; }
+.suite-parent:hover { background: var(--bg-2); }
+.suite-parent .chevron { font-size: 10px; color: var(--text-3); width: 16px; transition: transform 0.15s; }
+.suite-parent .chevron.open { transform: rotate(90deg); }
+.suite-parent .icon { font-size: 16px; }
+.suite-parent .name { flex: 1; font-size: 13px; }
+.suite-parent .count { font-size: 11px; color: var(--text-3); background: var(--bg-2); padding: 1px 6px; border-radius: 10px; }
+.suite-children { padding-left: 24px; display: none; }
+.suite-children.open { display: block; }
+.suite-child { padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.suite-child:hover { background: var(--bg-2); color: var(--text-1); }
+.suite-child.active { background: var(--accent-muted); color: var(--text-0); }
+
+/* Main Content */
+.main-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.page { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.page.active { display: flex; }
+
+/* Cards */
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.card h3 { font-size: 14px; font-weight: 600; color: var(--text-0); margin-bottom: 12px; }
+
+/* KPI Cards */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; }
+.kpi-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; }
+.kpi-card .label { font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-card .value { font-size: 28px; font-weight: 700; color: var(--text-0); }
+.kpi-card .sub { font-size: 12px; color: var(--text-3); }
+.kpi-card.green { border-left: 3px solid var(--green); }
+.kpi-card.red { border-left: 3px solid var(--red); }
+.kpi-card.yellow { border-left: 3px solid var(--yellow); }
+.kpi-card.blue { border-left: 3px solid var(--accent); }
+.kpi-card.purple { border-left: 3px solid var(--purple); }
+
+/* Dashboard grid */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 16px 16px; overflow-y: auto; flex: 1; }
+.dash-grid .card { min-height: 260px; display: flex; flex-direction: column; }
+.dash-grid .card canvas { flex: 1; }
+.dash-grid .full-width { grid-column: 1 / -1; }
+
+/* Tables */
+.table-container { flex: 1; overflow: auto; padding: 0 16px 16px; }
+table { width: 100%; border-collapse: collapse; }
+thead th { position: sticky; top: 0; background: var(--bg-2); padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); z-index: 1; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tbody tr { transition: background 0.1s; }
+tbody tr:hover { background: var(--bg-2); }
+
+/* Toolbar */
+.toolbar { display: flex; align-items: center; padding: 12px 16px; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+
+/* Buttons */
+.btn { padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-1); transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { background: var(--bg-3); border-color: var(--border-light); }
+.btn-primary { background: var(--accent-muted); border-color: var(--accent-muted); color: white; }
+.btn-primary:hover { background: var(--accent); }
+.btn-success { background: rgba(63,185,80,0.2); border-color: var(--green); color: var(--green); }
+.btn-danger { background: rgba(248,81,73,0.2); border-color: var(--red); color: var(--red); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px; min-width: 32px; justify-content: center; }
+
+/* Inputs */
+.input { background: var(--bg-0); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; color: var(--text-1); font-size: 13px; outline: none; transition: var(--transition); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.2); }
+.input-group { display: flex; flex-direction: column; gap: 4px; }
+.input-group label { font-size: 12px; color: var(--text-2); font-weight: 500; }
+select.input { cursor: pointer; }
+textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
+
+/* Badges */
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.badge-passed, .badge-green { background: var(--green-bg); color: var(--green); }
+.badge-failed, .badge-red { background: var(--red-bg); color: var(--red); }
+.badge-blocked, .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge-not_run, .badge-gray { background: var(--bg-3); color: var(--text-3); }
+.badge-in_progress, .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+.badge-open { background: var(--green-bg); color: var(--green); }
+.badge-assigned, .badge-in_progress_bug { background: var(--yellow-bg); color: var(--yellow); }
+.badge-fixed, .badge-retest { background: rgba(56,189,248,0.15); color: var(--cyan); }
+.badge-closed, .badge-verified { background: var(--bg-3); color: var(--text-3); }
+.badge-critical { background: var(--red-bg); color: var(--red); }
+.badge-high { background: var(--orange-bg); color: var(--orange); }
+.badge-medium { background: var(--yellow-bg); color: var(--yellow); }
+.badge-low { background: var(--bg-3); color: var(--text-2); }
+.badge-blocker { background: var(--red-bg); color: var(--red); font-weight: 700; }
+.badge-major { background: var(--orange-bg); color: var(--orange); }
+.badge-minor { background: var(--bg-3); color: var(--text-2); }
+.badge-trivial { background: var(--bg-2); color: var(--text-3); }
+.badge-integration { background: var(--purple-bg); color: var(--purple); }
+.badge-manual { background: var(--bg-3); color: var(--text-2); }
+.badge-ai_detected { background: rgba(56,189,248,0.15); color: var(--cyan); }
+
+/* Modals */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; width: 600px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; color: var(--text-0); }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+.close-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 20px; padding: 4px; }
+.close-btn:hover { color: var(--text-0); }
+
+/* Toast */
+.toast-container { position: fixed; top: 16px; right: 16px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 20px; border-radius: var(--radius); color: white; font-size: 13px; font-weight: 500; animation: slideIn 0.3s ease; box-shadow: var(--shadow); }
+.toast-success { background: #238636; }
+.toast-error { background: #da3633; }
+.toast-warning { background: #9e6a03; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Event feed */
+.event-feed { display: flex; flex-direction: column; gap: 8px; }
+.event-item { display: flex; gap: 12px; padding: 8px; border-radius: var(--radius-sm); }
+.event-item:hover { background: var(--bg-2); }
+.event-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.event-dot.bug { background: var(--red); }
+.event-dot.alert { background: var(--yellow); }
+.event-dot.info { background: var(--accent); }
+.event-dot.success { background: var(--green); }
+.event-content { flex: 1; }
+.event-content .event-title { font-size: 13px; color: var(--text-1); }
+.event-content .event-meta { font-size: 11px; color: var(--text-3); }
+
+/* Tab panels */
+.tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; flex-shrink: 0; }
+.tab-bar button { background: none; border: none; color: var(--text-2); padding: 10px 16px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; font-weight: 500; }
+.tab-bar button:hover { color: var(--text-1); }
+.tab-bar button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Details panel */
+.detail-panel { width: 380px; border-left: 1px solid var(--border); background: var(--bg-1); display: none; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.detail-panel.open { display: flex; }
+.detail-panel .detail-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.detail-panel .detail-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; }
+.detail-section { display: flex; flex-direction: column; gap: 8px; }
+.detail-section h4 { font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-row { display: flex; justify-content: space-between; align-items: center; }
+.detail-row .label { font-size: 12px; color: var(--text-3); }
+.detail-row .value { font-size: 13px; color: var(--text-1); }
+.step-list { display: flex; flex-direction: column; gap: 6px; }
+.step-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; background: var(--bg-0); border-radius: var(--radius-sm); }
+.step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--bg-3); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-2); flex-shrink: 0; }
+.step-text { font-size: 13px; color: var(--text-1); flex: 1; }
+.step-expected { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* Integration cards */
+.integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 16px; overflow-y: auto; }
+.int-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: var(--transition); }
+.int-card:hover { border-color: var(--border-light); }
+.int-card .int-header { display: flex; align-items: center; gap: 12px; }
+.int-card .int-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.int-card .int-info h4 { font-size: 14px; color: var(--text-0); }
+.int-card .int-info p { font-size: 12px; color: var(--text-3); }
+.int-card .int-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-2); }
+
+/* Responsive */
+@media (max-width: 1200px) { .dash-grid { grid-template-columns: 1fr; } .detail-panel { width: 320px; } }
+@media (max-width: 768px) { .sidebar { display: none; } .kpi-row { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="logo">🔬</div>
+    <h1>QA Platform</h1>
+    <p class="subtitle">Enterprise Test & Bug Management</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="input-group"><label>Username</label><input class="input" id="loginUser" value="admin" placeholder="Username"></div>
+      <div class="input-group"><label>Password</label><input class="input" id="loginPass" type="password" value="password123" placeholder="Password"></div>
+      <button class="btn btn-primary" style="width:100%;padding:10px;justify-content:center;font-size:14px;margin-top:8px;" onclick="login()">Sign In</button>
+      <p style="text-align:center;font-size:12px;color:var(--text-3);margin-top:8px;">Demo: admin / password123</p>
+    </div>
+  </div>
+</div>
+
+<!-- App Shell -->
+<div id="appShell">
+  <div class="top-bar">
+    <div class="brand"><span>🔬</span> QA Platform</div>
+    <nav>
+      <button class="active" onclick="switchPage('dashboard')">Dashboard</button>
+      <button onclick="switchPage('tests')">Tests</button>
+      <button onclick="switchPage('bugs')">Bugs</button>
+      <button onclick="switchPage('integrations')">Integrations</button>
+      <button onclick="switchPage('ai')">AI Lab</button>
+      <button onclick="switchPage('team')">Team</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="user-info">
+      <span id="userName"></span>
+      <div class="avatar" id="userAvatar"></div>
+      <button class="btn btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header"><h3>Test Suites</h3><button class="btn btn-sm btn-icon" onclick="openModal('newSuiteModal')">+</button></div>
+      <div class="sidebar-content" id="suiteTree"></div>
+    </div>
+
+    <div class="main-content">
+      <!-- Dashboard Page -->
+      <div class="page active" id="page-dashboard">
+        <div class="kpi-row" id="kpiCards"></div>
+        <div class="dash-grid" id="dashGrid"></div>
+      </div>
+
+      <!-- Tests Page -->
+      <div class="page" id="page-tests">
+        <div class="toolbar">
+          <input class="input" placeholder="Search tests..." id="testSearch" oninput="searchTests(this.value)" style="width:250px;">
+          <select class="input" id="testPriorityFilter" onchange="loadTests()"><option value="">All Priorities</option><option value="1">P1 - Critical</option><option value="2">P2 - High</option><option value="3">P3 - Medium</option><option value="4">P4 - Low</option></select>
+          <div class="spacer"></div>
+          <button class="btn btn-primary" onclick="openModal('newTestModal')">+ New Test Case</button>
+          <button class="btn btn-success" onclick="openModal('newRunModal')">▶ New Run</button>
+        </div>
+        <div class="table-container"><table><thead><tr><th>Key</th><th>Title</th><th>Suite</th><th>Priority</th><th>Type</th><th>Critical</th></tr></thead><tbody id="testsBody"></tbody></table></div>
+      </div>
+
+      <!-- Bugs Page -->
+      <div class="page" id="page-bugs">
+        <div class="toolbar">
+          <input class="input" placeholder="Search bugs..." id="bugSearch" oninput="debounce(loadBugs,300)()" style="width:250px;">
+          <select class="input" id="bugStatusFilter" onchange="loadBugs()"><option value="">All Status</option><option value="open">Open</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="fixed">Fixed</option><option value="retest">Retest</option><option value="closed">Closed</option></select>
+          <select class="input" id="bugPriorityFilter" onchange="loadBugs()"><option value="">All Priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+          <div class="spacer"></div>
+          <button class="btn btn-primary" onclick="openModal('newBugModal')">+ Report Bug</button>
+        </div>
+        <div style="display:flex;flex:1;overflow:hidden;">
+          <div class="table-container" style="flex:1;"><table><thead><tr><th>Key</th><th>Title</th><th>Status</th><th>Priority</th><th>Severity</th><th>Source</th><th>Assigned</th><th>Created</th></tr></thead><tbody id="bugsBody"></tbody></table></div>
+          <div class="detail-panel" id="bugDetail"></div>
+        </div>
+      </div>
+
+      <!-- Integrations Page -->
+      <div class="page" id="page-integrations">
+        <div class="toolbar">
+          <h2 style="font-size:16px;color:var(--text-0);">Integration Hub</h2>
+          <div class="spacer"></div>
+          <button class="btn btn-primary" onclick="openModal('newIntegrationModal')">+ Add Integration</button>
+        </div>
+        <div id="integrationsContent" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+          <div class="tab-bar"><button class="active" onclick="switchIntTab(this,'connectors')">Connectors</button><button onclick="switchIntTab(this,'events')">Event Feed</button></div>
+          <div id="intTab-connectors" class="integration-grid"></div>
+          <div id="intTab-events" style="display:none;flex:1;overflow:auto;padding:16px;"><div class="event-feed" id="eventFeed"></div></div>
+        </div>
+      </div>
+
+      <!-- AI Lab Page -->
+      <div class="page" id="page-ai">
+        <div class="toolbar"><h2 style="font-size:16px;color:var(--text-0);">🤖 AI Lab</h2><div class="spacer"></div><div id="aiStatusBadge"></div></div>
+        <div style="display:flex;flex:1;overflow:hidden;">
+          <div style="flex:1;padding:16px;overflow-y:auto;">
+            <div id="aiConnectionCard" style="margin-bottom:16px;"></div>
+            <div class="tab-bar" style="margin-bottom:16px;padding:0;"><button class="active" onclick="switchAITab(this,'generate')">Generate Tests</button><button onclick="switchAITab(this,'duplicates')">Duplicate Detection</button><button onclick="switchAITab(this,'risk')">Risk Prediction</button></div>
+            <div id="aiTab-generate">
+              <div class="card">
+                <h3>📝 Generate Test Cases from Requirements</h3>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+                  <div class="input-group"><label>Source Type</label><select class="input" id="aiSourceType"><option value="prd">PRD / Product Requirements</option><option value="user_story">User Stories</option><option value="api_spec">API Specification</option><option value="free_text">Free Text</option></select></div>
+                  <div class="input-group"><label>Paste your requirements</label><textarea class="input" id="aiSourceContent" rows="8" placeholder="Paste your PRD, user stories, or API spec here..." dir="auto"></textarea></div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="btn btn-primary" onclick="generateTests()" id="aiGenerateBtn" style="flex:1;">🤖 Generate Test Cases</button>
+                    <button class="btn" onclick="clearAILab()" id="aiClearBtn" style="background:var(--bg-2);color:var(--text-2);border:1px solid var(--border);min-width:100px;">🗑️ Clear</button>
+                    <label style="display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:13px;cursor:pointer;white-space:nowrap;"><input type="checkbox" id="aiPreviewMode" checked> Preview only (don't save)</label>
+                  </div>
+                </div>
+              </div>
+              <div id="aiGeneratedResults" style="margin-top:16px;"></div>
+            </div>
+            <div id="aiTab-duplicates" style="display:none;">
+              <div class="card">
+                <h3>🔍 Duplicate Bug Detection</h3>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+                  <div class="input-group"><label>Bug Title</label><input class="input" id="dupTitle" placeholder="Enter bug title to check..."></div>
+                  <div class="input-group"><label>Description (optional)</label><textarea class="input" id="dupDesc" rows="3" placeholder="Bug description..."></textarea></div>
+                  <button class="btn btn-primary" onclick="checkDuplicates()">🔍 Check Duplicates</button>
+                </div>
+              </div>
+              <div id="dupResults" style="margin-top:16px;"></div>
+            </div>
+            <div id="aiTab-risk" style="display:none;">
+              <div class="card"><h3>⚠️ Risk Prediction</h3><p style="color:var(--text-2);margin:8px 0;">AI-powered analysis of project risk based on bug trends and test results.</p><button class="btn btn-primary" onclick="predictRisk()">📊 Analyze Risk</button></div>
+              <div id="riskResults" style="margin-top:16px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team Page -->
+      <div class="page" id="page-team">
+        <div class="toolbar"><h2 style="font-size:16px;color:var(--text-0);">👥 Team & Productivity</h2></div>
+        <div style="flex:1;overflow:auto;">
+          <div class="kpi-row" id="teamKpis"></div>
+          <div class="table-container"><table><thead><tr><th>Name</th><th>Role</th><th>Tests Executed</th><th>Passed</th><th>Failed</th><th>Bugs Reported</th><th>Open Assigned</th></tr></thead><tbody id="teamBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="newBugModal">
+  <div class="modal" style="width:650px;">
+    <div class="modal-header"><h2>🐛 Report New Bug</h2><button class="close-btn" onclick="closeModal('newBugModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="input-group"><label>Title *</label><input class="input" id="bugTitle" placeholder="Brief description of the bug"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Priority</label><select class="input" id="bugPriority"><option value="critical">Critical</option><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div>
+        <div class="input-group"><label>Severity</label><select class="input" id="bugSeverity"><option value="blocker">Blocker</option><option value="critical">Critical</option><option value="major" selected>Major</option><option value="minor">Minor</option><option value="trivial">Trivial</option></select></div>
+      </div>
+      <div class="input-group"><label>Steps to Reproduce</label><textarea class="input" id="bugSteps" rows="4" placeholder="1. Go to...\n2. Click on...\n3. Observe..."></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Actual Result</label><textarea class="input" id="bugActual" rows="2"></textarea></div>
+        <div class="input-group"><label>Expected Result</label><textarea class="input" id="bugExpected" rows="2"></textarea></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Environment</label><input class="input" id="bugEnv" placeholder="e.g. Chrome 120, iOS"></div>
+        <div class="input-group"><label>Assign To</label><select class="input" id="bugAssign"><option value="">Unassigned</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('newBugModal')">Cancel</button><button class="btn btn-primary" onclick="createBug()">Submit Bug</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newTestModal">
+  <div class="modal">
+    <div class="modal-header"><h2>📝 New Test Case</h2><button class="close-btn" onclick="closeModal('newTestModal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Test Key *</label><input class="input" id="newTestKey" placeholder="e.g. AUTH-004"></div>
+        <div class="input-group"><label>Suite *</label><select class="input" id="newTestSuite"></select></div>
+      </div>
+      <div class="input-group"><label>Title *</label><input class="input" id="newTestTitle" placeholder="Test case title"></div>
+      <div class="input-group"><label>Description</label><textarea class="input" id="newTestDesc" rows="2"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Priority</label><select class="input" id="newTestPriority"><option value="1">P1 - Critical</option><option value="2" selected>P2 - High</option><option value="3">P3 - Medium</option><option value="4">P4 - Low</option></select></div>
+        <div class="input-group"><label>Type</label><select class="input" id="newTestType"><option value="manual">Manual</option><option value="automated">Automated</option><option value="hybrid">Hybrid</option></select></div>
+      </div>
+      <div class="input-group"><label>Steps</label><div id="newTestSteps"><div style="display:flex;gap:8px;margin-bottom:6px;"><span style="min-width:24px;color:var(--text-3);">1.</span><input class="input" style="flex:1;" placeholder="Step action"><input class="input" style="flex:1;" placeholder="Expected result"></div></div><button class="btn btn-sm" onclick="addStepRow()">+ Add Step</button></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('newTestModal')">Cancel</button><button class="btn btn-primary" onclick="createTestCase()">Create</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newSuiteModal">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header"><h2>📁 New Test Suite</h2><button class="close-btn" onclick="closeModal('newSuiteModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="input-group"><label>Suite Name *</label><input class="input" id="newSuiteName" placeholder="e.g. User Management"></div>
+      <div class="input-group"><label>Parent Suite</label><select class="input" id="newSuiteParent"><option value="">None (top-level)</option></select></div>
+      <div class="input-group"><label>Icon</label><input class="input" id="newSuiteIcon" value="📁" style="width:60px;text-align:center;font-size:20px;"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('newSuiteModal')">Cancel</button><button class="btn btn-primary" onclick="createSuite()">Create</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newRunModal">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header"><h2>▶ New Test Run</h2><button class="close-btn" onclick="closeModal('newRunModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="input-group"><label>Run Name *</label><input class="input" id="newRunName" placeholder="e.g. Sprint 14 Regression"></div>
+      <div class="input-group"><label>Environment</label><input class="input" id="newRunEnv" value="staging"></div>
+      <div class="input-group"><label>Build Number</label><input class="input" id="newRunBuild" placeholder="e.g. 1.2.3"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('newRunModal')">Cancel</button><button class="btn btn-primary" onclick="createRun()">Start Run</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newIntegrationModal">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header"><h2>🔗 Add Integration</h2><button class="close-btn" onclick="closeModal('newIntegrationModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="input-group"><label>Name *</label><input class="input" id="intName" placeholder="e.g. Production Sentry"></div>
+      <div class="input-group"><label>Type *</label><select class="input" id="intType"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="jenkins">Jenkins</option><option value="sentry">Sentry</option><option value="datadog">Datadog</option><option value="jira">Jira</option><option value="slack">Slack</option><option value="webhook">Generic Webhook</option></select></div>
+      <div class="input-group"><label>API URL</label><input class="input" id="intUrl" placeholder="https://..."></div>
+      <div class="input-group"><label>API Token (optional)</label><input class="input" id="intToken" type="password" placeholder="Token or secret"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('newIntegrationModal')">Cancel</button><button class="btn btn-primary" onclick="createIntegration()">Connect</button></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const API = '';
+let token = localStorage.getItem('qa_token');
+let currentUser = null;
+let projectId = null;
+let allSuites = [];
+let currentSuiteId = null;
+let charts = {};
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  if (res.status === 401) { logout(); throw new Error('Session expired'); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(100%)'; el.style.transition = '0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+
+async function login() {
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: document.getElementById('loginUser').value, password: document.getElementById('loginPass').value }) });
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('qa_token', token);
+    showApp();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function logout() {
+  token = null; currentUser = null;
+  localStorage.removeItem('qa_token');
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appShell').style.display = 'none';
+}
+
+async function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'flex';
+  try {
+    if (!currentUser) currentUser = await api('/api/auth/me');
+    document.getElementById('userName').textContent = currentUser.full_name;
+    document.getElementById('userAvatar').textContent = currentUser.full_name.split(' ').map(n => n[0]).join('');
+    const projects = await api('/api/tests/projects');
+    if (projects.length > 0) projectId = projects[0].id;
+    await Promise.all([loadSuiteTree(), loadDashboard(), loadTests(), loadBugs(), loadIntegrations(), loadTeam(), loadAIStatus()]);
+  } catch (e) { console.error(e); }
+}
+
+function switchPage(page) {
+  document.querySelectorAll('.top-bar nav button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.getElementById('sidebar').style.display = (page === 'tests') ? '' : 'none';
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'team') loadTeam();
+  if (page === 'ai') loadAIStatus();
+}
+
+// --- Suite Tree ---
+async function loadSuiteTree() {
+  if (!projectId) return;
+  allSuites = await api(`/api/tests/suites?project_id=${projectId}`);
+  renderSuiteTree(allSuites);
+  populateSuiteSelects();
+}
+
+function renderSuiteTree(suites) {
+  const el = document.getElementById('suiteTree');
+  el.innerHTML = suites.map(s => `
+    <div class="suite-group">
+      <div class="suite-parent" onclick="toggleSuiteChildren(this, '${s.id}')">
+        <span class="chevron ${s.children.length > 0 ? '' : 'open'}">▶</span>
+        <span class="icon">${s.icon}</span>
+        <span class="name">${s.name}</span>
+        <span class="count">${s.test_count || 0}</span>
+      </div>
+      <div class="suite-children ${s.children.length > 0 ? '' : 'open'}">
+        ${s.children.map(c => `
+          <div class="suite-child" onclick="selectSuite('${c.id}', this)">${c.name} <span class="count">${c.test_count || 0}</span></div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleSuiteChildren(el) {
+  const chevron = el.querySelector('.chevron');
+  const children = el.nextElementSibling;
+  chevron.classList.toggle('open');
+  children.classList.toggle('open');
+}
+
+function selectSuite(suiteId, el) {
+  document.querySelectorAll('.suite-child').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  currentSuiteId = suiteId;
+  loadTests();
+}
+
+function populateSuiteSelects() {
+  const flat = [];
+  const flatten = (suites, prefix = '') => suites.forEach(s => { flat.push({ id: s.id, name: prefix + s.name }); if (s.children) flatten(s.children, prefix + s.name + ' > '); });
+  flatten(allSuites);
+  ['newTestSuite', 'newSuiteParent'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const first = selId === 'newSuiteParent' ? '<option value="">None (top-level)</option>' : '';
+    sel.innerHTML = first + flat.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  });
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+  if (!projectId) return;
+  try {
+    const d = await api(`/api/dashboard/overview?project_id=${projectId}`);
+    document.getElementById('kpiCards').innerHTML = `
+      <div class="kpi-card blue"><div class="label">Total Tests</div><div class="value">${d.overview.totalTests}</div><div class="sub">${d.testsByType.map(t=>`${t.count} ${t.test_type}`).join(', ')}</div></div>
+      <div class="kpi-card green"><div class="label">Total Bugs</div><div class="value">${d.overview.totalBugs}</div><div class="sub">${d.overview.openBugs} open</div></div>
+      <div class="kpi-card red"><div class="label">Critical Bugs</div><div class="value">${d.overview.criticalBugs}</div><div class="sub">Need immediate attention</div></div>
+      <div class="kpi-card purple"><div class="label">Integrations</div><div class="value">${d.integrationStats?.active_integrations || 0}</div><div class="sub">${d.integrationStats?.total_events || 0} events received</div></div>
+    `;
+
+    const grid = document.getElementById('dashGrid');
+    grid.innerHTML = `
+      <div class="card"><h3>Bug Status Distribution</h3><canvas id="chartBugStatus"></canvas></div>
+      <div class="card"><h3>Bug Priority</h3><canvas id="chartBugPriority"></canvas></div>
+      <div class="card full-width"><h3>Recent Bugs</h3><div id="recentBugsList"></div></div>
+      <div class="card full-width"><h3>Recent Integration Events</h3><div class="event-feed" id="dashEventFeed"></div></div>
+    `;
+
+    Object.values(charts).forEach(c => c.destroy());
+    charts = {};
+
+    if (d.bugsByStatus.length > 0) {
+      const colors = { open: '#3fb950', assigned: '#d29922', in_progress: '#58a6ff', fixed: '#39d2c0', retest: '#bc8cff', closed: '#6e7681', rejected: '#484f58', verified: '#8b949e', reopened: '#f0883e' };
+      charts.bugStatus = new Chart(document.getElementById('chartBugStatus'), { type: 'doughnut', data: { labels: d.bugsByStatus.map(b => b.status), datasets: [{ data: d.bugsByStatus.map(b => b.count), backgroundColor: d.bugsByStatus.map(b => colors[b.status] || '#6e7681'), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#c9d1d9', padding: 12 } } } } });
+    }
+
+    if (d.bugsByPriority.length > 0) {
+      const pColors = { critical: '#f85149', high: '#f0883e', medium: '#d29922', low: '#6e7681' };
+      charts.bugPriority = new Chart(document.getElementById('chartBugPriority'), { type: 'bar', data: { labels: d.bugsByPriority.map(b => b.priority), datasets: [{ data: d.bugsByPriority.map(b => b.count), backgroundColor: d.bugsByPriority.map(b => pColors[b.priority] || '#58a6ff'), borderRadius: 4, barThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { display: false } }, y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } } } } });
+    }
+
+    document.getElementById('recentBugsList').innerHTML = d.recentBugs.length > 0 ? `<table><thead><tr><th>Key</th><th>Title</th><th>Status</th><th>Priority</th><th>Reporter</th><th>Created</th></tr></thead><tbody>${d.recentBugs.map(b => `<tr><td><a href="#" onclick="event.preventDefault();switchPage('bugs');">${b.bug_key}</a></td><td>${b.title}</td><td><span class="badge badge-${b.status}">${b.status}</span></td><td><span class="badge badge-${b.priority}">${b.priority}</span></td><td>${b.reported_by_name || '-'}</td><td>${new Date(b.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table>` : '<p style="color:var(--text-3);padding:12px;">No bugs yet</p>';
+
+    document.getElementById('dashEventFeed').innerHTML = d.recentEvents.length > 0 ? d.recentEvents.map(e => `<div class="event-item"><div class="event-dot ${e.processed_as === 'bug' ? 'bug' : e.processed_as === 'alert' ? 'alert' : 'info'}"></div><div class="event-content"><div class="event-title">${e.integration_name}: ${e.event_type}</div><div class="event-meta">${e.source_system} • ${e.status} ${e.processed_as ? '→ ' + e.processed_as : ''} • ${new Date(e.received_at).toLocaleString()}</div></div></div>`).join('') : '<p style="color:var(--text-3);">No events yet. Connect an integration to start receiving events.</p>';
+
+  } catch (e) { console.error('Dashboard load error:', e); }
+}
+
+// --- Tests ---
+async function loadTests() {
+  if (!projectId) return;
+  let url = `/api/tests/cases?project_id=${projectId}`;
+  if (currentSuiteId) url = `/api/tests/cases?suite_id=${currentSuiteId}`;
+  const priority = document.getElementById('testPriorityFilter')?.value;
+  if (priority) url += `&priority=${priority}`;
+  try {
+    const tests = await api(url);
+    document.getElementById('testsBody').innerHTML = tests.length > 0 ? tests.map(t => `
+      <tr style="cursor:pointer;" onclick="showTestDetail('${t.id}')">
+        <td><span style="color:var(--accent);font-weight:600;">${t.test_key}</span></td>
+        <td>${t.title}</td>
+        <td style="color:var(--text-2);font-size:12px;">${t.suite_icon || ''} ${t.suite_name || ''}</td>
+        <td><span class="badge badge-${t.priority <= 1 ? 'red' : t.priority <= 2 ? 'yellow' : 'gray'}">P${t.priority}</span></td>
+        <td><span class="badge badge-${t.test_type}">${t.test_type}</span></td>
+        <td>${t.is_critical ? '🔴' : ''}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No test cases found. Select a suite or create a new test.</td></tr>';
+  } catch (e) { console.error(e); }
+}
+
+function searchTests(q) {
+  debounce(async () => {
+    let url = `/api/tests/cases?project_id=${projectId}&search=${encodeURIComponent(q)}`;
+    try { const tests = await api(url); renderTestTable(tests); } catch(e) {}
+  }, 300)();
+}
+
+function renderTestTable(tests) {
+  document.getElementById('testsBody').innerHTML = tests.map(t => `
+    <tr style="cursor:pointer;" onclick="showTestDetail('${t.id}')">
+      <td><span style="color:var(--accent);font-weight:600;">${t.test_key}</span></td>
+      <td>${t.title}</td>
+      <td style="color:var(--text-2);font-size:12px;">${t.suite_icon || ''} ${t.suite_name || ''}</td>
+      <td><span class="badge badge-${t.priority <= 1 ? 'red' : t.priority <= 2 ? 'yellow' : 'gray'}">P${t.priority}</span></td>
+      <td><span class="badge badge-${t.test_type}">${t.test_type}</span></td>
+      <td>${t.is_critical ? '🔴' : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function showTestDetail(id) {
+  try {
+    const tests = await api(`/api/tests/cases?project_id=${projectId}`);
+    const t = tests.find(tc => tc.id === id);
+    if (!t) return;
+    toast(`Viewing: ${t.test_key} - ${t.title}`);
+  } catch(e) {}
+}
+
+async function createTestCase() {
+  try {
+    const steps = [];
+    document.querySelectorAll('#newTestSteps > div').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      if (inputs[0]?.value) steps.push({ action: inputs[0].value, expected_result: inputs[1]?.value || '' });
+    });
+    await api('/api/tests/cases', { method: 'POST', body: JSON.stringify({ suite_id: document.getElementById('newTestSuite').value, test_key: document.getElementById('newTestKey').value, title: document.getElementById('newTestTitle').value, description: document.getElementById('newTestDesc').value, priority: parseInt(document.getElementById('newTestPriority').value), test_type: document.getElementById('newTestType').value, steps }) });
+    closeModal('newTestModal');
+    toast('Test case created!');
+    loadTests(); loadSuiteTree();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function addStepRow() {
+  const container = document.getElementById('newTestSteps');
+  const num = container.children.length + 1;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+  div.innerHTML = `<span style="min-width:24px;color:var(--text-3);">${num}.</span><input class="input" style="flex:1;" placeholder="Step action"><input class="input" style="flex:1;" placeholder="Expected result">`;
+  container.appendChild(div);
+}
+
+async function createSuite() {
+  try {
+    await api('/api/tests/suites', { method: 'POST', body: JSON.stringify({ project_id: projectId, name: document.getElementById('newSuiteName').value, parent_id: document.getElementById('newSuiteParent').value || null, icon: document.getElementById('newSuiteIcon').value }) });
+    closeModal('newSuiteModal');
+    toast('Suite created!');
+    loadSuiteTree();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function createRun() {
+  try {
+    const tests = await api(`/api/tests/cases?project_id=${projectId}`);
+    await api('/api/tests/runs', { method: 'POST', body: JSON.stringify({ project_id: projectId, name: document.getElementById('newRunName').value, environment: document.getElementById('newRunEnv').value, build_number: document.getElementById('newRunBuild').value, test_case_ids: tests.map(t => t.id) }) });
+    closeModal('newRunModal');
+    toast('Test run started!');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// --- Bugs ---
+async function loadBugs() {
+  if (!projectId) return;
+  const search = document.getElementById('bugSearch')?.value || '';
+  const status = document.getElementById('bugStatusFilter')?.value || '';
+  const priority = document.getElementById('bugPriorityFilter')?.value || '';
+  let url = `/api/bugs?project_id=${projectId}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (status) url += `&status=${status}`;
+  if (priority) url += `&priority=${priority}`;
+  try {
+    const data = await api(url);
+    document.getElementById('bugsBody').innerHTML = data.bugs.length > 0 ? data.bugs.map(b => `
+      <tr style="cursor:pointer;" onclick="showBugDetail('${b.id}')">
+        <td><span style="color:var(--accent);font-weight:600;">${b.bug_key}</span></td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${b.title}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+        <td><span class="badge badge-${b.priority}">${b.priority}</span></td>
+        <td><span class="badge badge-${b.severity}">${b.severity}</span></td>
+        <td><span class="badge badge-${b.source}">${b.source}</span></td>
+        <td>${b.assigned_to_name || '<span style="color:var(--text-3)">—</span>'}</td>
+        <td style="color:var(--text-3);font-size:12px;">${new Date(b.created_at).toLocaleDateString()}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3);">No bugs found</td></tr>';
+  } catch (e) { console.error(e); }
+}
+
+async function showBugDetail(id) {
+  try {
+    const b = await api(`/api/bugs/${id}`);
+    const panel = document.getElementById('bugDetail');
+    panel.classList.add('open');
+    panel.innerHTML = `
+      <div class="detail-header"><h3 style="font-size:14px;color:var(--text-0);">${b.bug_key}</h3><button class="close-btn" onclick="document.getElementById('bugDetail').classList.remove('open')">&times;</button></div>
+      <div class="detail-body">
+        <h4 style="font-size:15px;color:var(--text-0);margin-bottom:8px;">${b.title}</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="badge badge-${b.status}">${b.status}</span>
+          <span class="badge badge-${b.priority}">${b.priority}</span>
+          <span class="badge badge-${b.severity}">${b.severity}</span>
+          <span class="badge badge-${b.source}">${b.source}</span>
+        </div>
+        <div class="detail-section"><h4>Description</h4><p style="font-size:13px;color:var(--text-2);white-space:pre-wrap;">${b.description || 'No description'}</p></div>
+        ${b.steps_to_reproduce ? `<div class="detail-section"><h4>Steps to Reproduce</h4><pre style="font-size:12px;color:var(--text-2);background:var(--bg-0);padding:12px;border-radius:var(--radius-sm);white-space:pre-wrap;">${b.steps_to_reproduce}</pre></div>` : ''}
+        ${b.environment ? `<div class="detail-section"><h4>Environment</h4><p style="font-size:13px;color:var(--text-2);">${b.environment}</p></div>` : ''}
+        ${b.ai_root_cause ? `<div class="detail-section"><h4>🤖 AI Root Cause</h4><p style="font-size:13px;color:var(--cyan);white-space:pre-wrap;">${b.ai_root_cause}</p></div>` : ''}
+        ${b.ai_suggested_fix ? `<div class="detail-section"><h4>🤖 AI Suggested Fix</h4><p style="font-size:13px;color:var(--green);white-space:pre-wrap;">${b.ai_suggested_fix}</p></div>` : ''}
+        <div class="detail-section">
+          <h4>Update Status</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${['open','assigned','in_progress','fixed','retest','verified','closed','rejected'].map(s => `<button class="btn btn-sm ${s === b.status ? 'btn-primary' : ''}" onclick="updateBugStatus('${b.id}','${s}')">${s}</button>`).join('')}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>AI Analysis</h4>
+          <button class="btn btn-sm" onclick="analyzeRootCause('${b.id}')">🤖 Root Cause Analysis</button>
+        </div>
+        <div class="detail-section">
+          <h4>History (${(b.history || []).length})</h4>
+          ${(b.history || []).map(h => `<div style="font-size:12px;color:var(--text-3);padding:4px 0;border-bottom:1px solid var(--border);"><strong>${h.user_name || 'System'}</strong> changed <em>${h.field_name}</em> from "${h.old_value || '—'}" to "${h.new_value}" <span style="float:right;">${new Date(h.created_at).toLocaleString()}</span></div>`).join('')}
+        </div>
+        <div class="detail-section">
+          <h4>Comments (${(b.comments || []).length})</h4>
+          ${(b.comments || []).map(c => `<div style="padding:8px;background:var(--bg-0);border-radius:var(--radius-sm);margin-bottom:6px;"><div style="font-size:12px;color:var(--text-2);margin-bottom:4px;"><strong>${c.user_name}</strong> • ${new Date(c.created_at).toLocaleString()}</div><p style="font-size:13px;">${c.content}</p></div>`).join('')}
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <input class="input" id="bugCommentInput" placeholder="Add a comment..." style="flex:1;">
+            <button class="btn btn-sm btn-primary" onclick="addBugComment('${b.id}')">Send</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function updateBugStatus(bugId, status) {
+  try { await api(`/api/bugs/${bugId}`, { method: 'PUT', body: JSON.stringify({ status }) }); toast(`Status updated to ${status}`); showBugDetail(bugId); loadBugs(); loadDashboard(); } catch (e) { toast(e.message, 'error'); }
+}
+
+async function addBugComment(bugId) {
+  const input = document.getElementById('bugCommentInput');
+  if (!input.value.trim()) return;
+  try { await api(`/api/bugs/${bugId}/comments`, { method: 'POST', body: JSON.stringify({ content: input.value }) }); input.value = ''; showBugDetail(bugId); } catch (e) { toast(e.message, 'error'); }
+}
+
+async function analyzeRootCause(bugId) {
+  try { toast('Analyzing root cause...', 'warning'); const result = await api('/api/ai/root-cause', { method: 'POST', body: JSON.stringify({ bug_id: bugId }) }); toast('Root cause analysis complete!'); showBugDetail(bugId); } catch (e) { toast(e.message, 'error'); }
+}
+
+async function createBug() {
+  try {
+    await api('/api/bugs', { method: 'POST', body: JSON.stringify({
+      project_id: projectId, title: document.getElementById('bugTitle').value, priority: document.getElementById('bugPriority').value, severity: document.getElementById('bugSeverity').value, steps_to_reproduce: document.getElementById('bugSteps').value, actual_result: document.getElementById('bugActual').value, expected_result: document.getElementById('bugExpected').value, environment: document.getElementById('bugEnv').value, assigned_to: document.getElementById('bugAssign').value || null
+    }) });
+    closeModal('newBugModal');
+    toast('Bug reported!');
+    loadBugs(); loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// --- Integrations ---
+async function loadIntegrations() {
+  try {
+    const ints = await api('/api/integrations');
+    const icons = { github: '🐙', gitlab: '🦊', jenkins: '🔧', sentry: '🛡️', datadog: '🐕', jira: '📋', slack: '💬', webhook: '🔗', custom_api: '⚡' };
+    const colors = { github: '#21262d', gitlab: '#292961', jenkins: '#335061', sentry: '#362d59', datadog: '#632ca6', jira: '#0052cc', slack: '#4a154b', webhook: '#30363d', custom_api: '#30363d' };
+    document.getElementById('intTab-connectors').innerHTML = ints.length > 0 ? ints.map(i => `
+      <div class="int-card">
+        <div class="int-header">
+          <div class="int-icon" style="background:${colors[i.type] || '#30363d'};">${icons[i.type] || '🔗'}</div>
+          <div class="int-info"><h4>${i.name}</h4><p>${i.type} • ${i.is_active ? '🟢 Active' : '🔴 Inactive'}</p></div>
+        </div>
+        <div class="int-stats"><span>📨 ${i.total_events || 0} events</span><span>⏳ ${i.pending_events || 0} pending</span></div>
+        <div style="font-size:11px;color:var(--text-3);word-break:break-all;">Webhook: /api/integrations/webhook/${i.id}</div>
+      </div>
+    `).join('') : '<div style="padding:40px;text-align:center;color:var(--text-3);grid-column:1/-1;"><p style="font-size:48px;margin-bottom:16px;">🔗</p><p>No integrations configured yet.</p><p style="margin-top:8px;">Connect GitHub, Sentry, Jenkins, or any system via webhooks.</p></div>';
+
+    const events = await api('/api/integrations/events?limit=50');
+    document.getElementById('eventFeed').innerHTML = events.length > 0 ? events.map(e => `
+      <div class="event-item">
+        <div class="event-dot ${e.processed_as === 'bug' ? 'bug' : e.status === 'error' ? 'bug' : 'info'}"></div>
+        <div class="event-content">
+          <div class="event-title">${e.event_type} from ${e.source_system}</div>
+          <div class="event-meta">Status: ${e.status} ${e.processed_as ? '→ Created ' + e.processed_as : ''} • ${new Date(e.received_at).toLocaleString()}</div>
+        </div>
+      </div>
+    `).join('') : '<p style="color:var(--text-3);">No events received yet.</p>';
+  } catch (e) { console.error(e); }
+}
+
+function switchIntTab(btn, tab) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('intTab-connectors').style.display = tab === 'connectors' ? '' : 'none';
+  document.getElementById('intTab-events').style.display = tab === 'events' ? '' : 'none';
+}
+
+async function createIntegration() {
+  try {
+    await api('/api/integrations', { method: 'POST', body: JSON.stringify({ name: document.getElementById('intName').value, type: document.getElementById('intType').value, config: { api_url: document.getElementById('intUrl').value, api_token: document.getElementById('intToken').value } }) });
+    closeModal('newIntegrationModal');
+    toast('Integration connected!');
+    loadIntegrations();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// --- AI Lab ---
+async function loadAIStatus() {
+  try {
+    const status = await api('/api/ai/status');
+    const connected = status.connected;
+    document.getElementById('aiStatusBadge').innerHTML = connected
+      ? `<span class="badge badge-green">🟢 ${status.provider === 'gemini' ? 'Gemini' : 'OpenAI'} (${status.model}) — ${status.language === 'he' ? 'Hebrew' : 'English'}</span>`
+      : `<span class="badge badge-yellow">⚡ Heuristic Mode — Set GEMINI_API_KEY for full AI</span>`;
+    document.getElementById('aiConnectionCard').innerHTML = connected
+      ? `<div class="card" style="border-color:var(--green);background:var(--green-bg);"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">✅</span><div><h3 style="color:var(--green);margin:0;">${status.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} Connected</h3><p style="color:var(--text-2);font-size:13px;margin-top:4px;">Model: ${status.model} | Language: ${status.language === 'he' ? 'Hebrew' : 'English'} | Test generation, duplicate detection, root cause analysis, risk prediction — all AI-powered</p></div></div></div>`
+      : `<div class="card" style="border-color:var(--yellow);"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">💡</span><div><h3 style="color:var(--yellow);margin:0;">Basic Mode (No AI)</h3><p style="color:var(--text-2);font-size:13px;margin-top:4px;">System is running with built-in heuristic algorithms. To connect Gemini AI (free!):<br><code style="background:var(--bg-0);padding:2px 6px;border-radius:3px;">GEMINI_API_KEY=your_key node server.js</code></p><p style="color:var(--text-3);font-size:12px;margin-top:8px;">Get a free API key from <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → Get API Key</p></div></div></div>`;
+  } catch (e) { console.error('AI status error:', e); }
+}
+
+function switchAITab(btn, tab) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['generate', 'duplicates', 'risk'].forEach(t => { document.getElementById(`aiTab-${t}`).style.display = t === tab ? '' : 'none'; });
+}
+
+async function generateTests() {
+  const btn = document.getElementById('aiGenerateBtn');
+  const preview = document.getElementById('aiPreviewMode').checked;
+  btn.disabled = true; btn.textContent = '⏳ Generating...';
+  try {
+    const result = await api('/api/ai/generate-tests', { method: 'POST', body: JSON.stringify({ project_id: projectId, source_type: document.getElementById('aiSourceType').value, source_content: document.getElementById('aiSourceContent').value, preview }) });
+
+    const pBadge = p => `<span class="badge badge-${p <= 1 ? 'red' : p <= 2 ? 'yellow' : p <= 3 ? 'gray' : 'gray'}">${{1:'P1 Critical',2:'P2 High',3:'P3 Medium',4:'P4 Low'}[p]||'P'+p}</span>`;
+
+    const sections = {};
+    result.tests.forEach(t => {
+      const sec = t.section || 'General';
+      if (!sections[sec]) sections[sec] = [];
+      sections[sec].push(t);
+    });
+
+    let html = `<div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3>Generated ${result.totalGenerated} Test Cases (confidence: ${Math.round(result.confidence * 100)}%) — ${result.model}</h3>
+        ${result.preview ? '<span class="badge badge-yellow">Preview — not saved</span>' : '<span class="badge badge-green">Saved</span>'}
+      </div>
+      ${result.traceabilityMatrix && result.traceabilityMatrix.length > 0 ? `<div style="margin-top:12px;"><strong>Traceability Matrix:</strong><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${result.traceabilityMatrix.map(m => `<span style="background:var(--bg-2);padding:4px 10px;border-radius:4px;font-size:12px;">${m.requirement} → ${m.testCases.length} tests</span>`).join('')}</div></div>` : ''}
+    </div>`;
+
+    for (const [sec, tests] of Object.entries(sections)) {
+      html += `<div class="card" style="margin-bottom:12px;">
+        <h3 style="margin-bottom:12px;color:var(--accent);">📂 ${sec}</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;">`;
+      for (const t of tests) {
+        const isNeg = t.title.includes('שלילית') || t.title.includes('Negative');
+        html += `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--bg-0);${isNeg ? 'border-left:3px solid var(--red);' : 'border-left:3px solid var(--accent);'}" dir="auto">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-weight:600;color:var(--text-0);font-size:12px;background:var(--bg-2);padding:2px 8px;border-radius:3px;">${t.test_key}</span>
+            ${pBadge(t.priority)}
+            <span style="font-size:12px;color:var(--text-3);">${t.type}</span>
+            ${isNeg ? '<span style="font-size:11px;background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;">Negative</span>' : ''}
+          </div>
+          <div style="font-weight:600;color:var(--text-0);margin-bottom:6px;">${t.title}</div>
+          ${t.description ? `<div style="color:var(--text-2);font-size:13px;margin-bottom:8px;">${t.description}</div>` : ''}
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${(t.steps||[]).map((s,i) => `<div style="display:flex;gap:8px;font-size:13px;padding:4px 0;">
+              <span style="color:var(--accent);font-weight:600;min-width:20px;">${i+1}.</span>
+              <div><span style="color:var(--text-1);">${s.action}</span><br><span style="color:var(--green);font-size:12px;">✓ ${s.expected_result}</span></div>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    document.getElementById('aiGeneratedResults').innerHTML = html;
+    document.getElementById('aiGeneratedResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast(`Generated ${result.totalGenerated} test cases!${result.preview ? ' (Preview — not saved)' : ''}`);
+  } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🤖 Generate Test Cases';
+}
+
+function clearAILab() {
+  document.getElementById('aiGeneratedResults').innerHTML = '';
+  document.getElementById('aiSourceContent').value = '';
+  document.getElementById('dupResults') && (document.getElementById('dupResults').innerHTML = '');
+  document.getElementById('riskResults') && (document.getElementById('riskResults').innerHTML = '');
+  toast('AI Lab cleared');
+}
+
+async function checkDuplicates() {
+  try {
+    const result = await api('/api/ai/detect-duplicates', { method: 'POST', body: JSON.stringify({ project_id: projectId, bug_title: document.getElementById('dupTitle').value, bug_description: document.getElementById('dupDesc').value }) });
+    document.getElementById('dupResults').innerHTML = result.duplicates.length > 0
+      ? `<div class="card"><h3>🔍 ${result.duplicates.length} Potential Duplicates Found</h3><table style="margin-top:12px;"><thead><tr><th>Key</th><th>Title</th><th>Status</th><th>Similarity</th></tr></thead><tbody>${result.duplicates.map(d => `<tr><td>${d.bug_key}</td><td>${d.title}</td><td><span class="badge badge-${d.status}">${d.status}</span></td><td><div style="background:var(--bg-0);border-radius:10px;overflow:hidden;width:80px;height:8px;"><div style="background:${d.similarity_score > 0.7 ? 'var(--red)' : d.similarity_score > 0.4 ? 'var(--yellow)' : 'var(--green)'};width:${d.similarity_score*100}%;height:100%;"></div></div> ${Math.round(d.similarity_score*100)}%</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="card"><h3>✅ No Duplicates Found</h3><p style="color:var(--text-2);margin-top:8px;">This appears to be a unique bug.</p></div>';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function predictRisk() {
+  try {
+    const r = await api('/api/ai/risk-prediction', { method: 'POST', body: JSON.stringify({ project_id: projectId }) });
+    const riskColors = { low: 'var(--green)', medium: 'var(--yellow)', high: 'var(--orange)', critical: 'var(--red)' };
+    document.getElementById('riskResults').innerHTML = `
+      <div class="card">
+        <h3>Overall Risk: <span style="color:${riskColors[r.overallRiskLevel]};text-transform:uppercase;">${r.overallRiskLevel}</span></h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:16px 0;">
+          <div class="kpi-card red"><div class="label">Critical Bugs</div><div class="value">${r.metrics.criticalOpenBugs}</div></div>
+          <div class="kpi-card yellow"><div class="label">Recent Bugs (7d)</div><div class="value">${r.metrics.recentBugRate}</div></div>
+          <div class="kpi-card blue"><div class="label">Total Open</div><div class="value">${r.metrics.totalOpenBugs}</div></div>
+        </div>
+        ${r.highRiskAreas.length > 0 ? `<h4 style="margin:12px 0 8px;color:var(--text-2);">High Risk Areas</h4><table><thead><tr><th>Area</th><th>Failure Rate</th><th>Failed/Total</th></tr></thead><tbody>${r.highRiskAreas.map(a => `<tr><td>${a.area}</td><td><span style="color:var(--red);">${Math.round(a.failureRate*100)}%</span></td><td>${a.failedTests}/${a.totalTests}</td></tr>`).join('')}</tbody></table>` : ''}
+        <h4 style="margin:16px 0 8px;color:var(--text-2);">Recommendations</h4>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;">${r.recommendations.map(rec => `<li style="padding:8px 12px;background:var(--bg-0);border-radius:var(--radius-sm);font-size:13px;">💡 ${rec}</li>`).join('')}</ul>
+      </div>
+    `;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// --- Team ---
+async function loadTeam() {
+  if (!projectId) return;
+  try {
+    const data = await api(`/api/dashboard/team-productivity?project_id=${projectId}`);
+    const totalExec = data.testerStats.reduce((sum, t) => sum + t.tests_executed, 0);
+    const totalBugsReported = data.testerStats.reduce((sum, t) => sum + t.bugs_reported, 0);
+    document.getElementById('teamKpis').innerHTML = `
+      <div class="kpi-card blue"><div class="label">Team Members</div><div class="value">${data.testerStats.length}</div></div>
+      <div class="kpi-card green"><div class="label">Tests Executed</div><div class="value">${totalExec}</div></div>
+      <div class="kpi-card red"><div class="label">Bugs Reported</div><div class="value">${totalBugsReported}</div></div>
+    `;
+    document.getElementById('teamBody').innerHTML = data.testerStats.map(t => `
+      <tr>
+        <td><strong>${t.full_name}</strong></td>
+        <td><span class="badge badge-blue">${t.role}</span></td>
+        <td>${t.tests_executed}</td>
+        <td style="color:var(--green);">${t.tests_passed}</td>
+        <td style="color:var(--red);">${t.tests_failed}</td>
+        <td>${t.bugs_reported}</td>
+        <td>${t.bugs_assigned_open}</td>
+      </tr>
+    `).join('');
+
+    // Populate bug assign dropdown
+    const users = await api('/api/auth/users');
+    const assignSelect = document.getElementById('bugAssign');
+    if (assignSelect) assignSelect.innerHTML = '<option value="">Unassigned</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
+  } catch (e) { console.error(e); }
+}
+
+// --- Init ---
+if (token) { showApp(); }
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>
