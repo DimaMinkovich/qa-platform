@@ -668,6 +668,52 @@ details[open] summary::before { transform: rotate(90deg); }
                 </div>
 
                 <div id="jiraGenerateStatus" style="display:none;margin-top:12px;padding:12px;border-radius:var(--radius);background:var(--bg-2);font-size:13px;color:var(--text-1);"></div>
+
+                <!-- Generated Tests Results (inline) -->
+                <div id="jiraResultsArea" style="display:none;margin-top:16px;border-top:2px solid var(--accent-muted);padding-top:16px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <h4 style="font-size:14px;color:var(--text-0);margin:0;display:flex;align-items:center;gap:8px;">
+                      🤖 Generated Test Cases <span id="jiraTestCount" style="font-size:11px;background:var(--accent-muted);color:white;padding:1px 7px;border-radius:10px;">0</span>
+                    </h4>
+                    <div style="display:flex;gap:8px;">
+                      <button class="btn btn-sm" onclick="toggleAllJiraTests(true)" style="font-size:11px;">Select All</button>
+                      <button class="btn btn-sm" onclick="toggleAllJiraTests(false)" style="font-size:11px;color:var(--red);border-color:var(--red);">Deselect All</button>
+                    </div>
+                  </div>
+
+                  <div id="jiraTestsList" style="max-height:500px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);"></div>
+
+                  <!-- Import Controls -->
+                  <div style="margin-top:14px;background:var(--bg-2);border-radius:var(--radius);padding:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;font-weight:600;color:var(--text-0);">
+                      📥 Import Selected Tests to Suite
+                      <span id="jiraImportSelCount" style="font-size:11px;color:var(--accent);">(0 selected)</span>
+                    </div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+                      <div style="flex:1;min-width:200px;">
+                        <label style="display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Suite Name</label>
+                        <input type="text" id="jiraImportSuiteName" class="input" placeholder="e.g. Jira Sprint 12 Tests" style="width:100%;">
+                      </div>
+                      <div style="min-width:180px;">
+                        <label style="display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Or Existing Suite</label>
+                        <select id="jiraImportExistingSuite" class="input" style="width:100%;">
+                          <option value="">— Create New —</option>
+                        </select>
+                      </div>
+                      <button class="btn btn-primary" onclick="importJiraTests()" id="jiraImportBtn" disabled style="padding:10px 20px;font-size:13px;font-weight:600;white-space:nowrap;">
+                        📥 Import to Tests
+                      </button>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:10px;align-items:center;">
+                      <label style="font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" id="jiraCreateRunToo"> Also create a Test Run
+                      </label>
+                      <div id="jiraRunNameWrap" style="display:none;flex:1;">
+                        <input type="text" id="jiraRunName" class="input" placeholder="Run name..." style="width:100%;padding:6px 10px;font-size:12px;">
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2916,15 +2962,19 @@ function updateJiraSelectionUI() {
   }
 }
 
+let jiraGeneratedTests = [];
+let jiraTestSelectedKeys = new Set();
+
 async function generateTestsFromJira() {
   if (jiraSelectedKeys.size === 0) return;
   const btn = document.getElementById('jiraGenerateBtn');
   const statusEl = document.getElementById('jiraGenerateStatus');
-  const preview = document.getElementById('jiraPreviewOnly').checked;
+  const resultsArea = document.getElementById('jiraResultsArea');
 
   btn.disabled = true;
   btn.textContent = '⏳ Generating...';
   statusEl.style.display = '';
+  resultsArea.style.display = 'none';
   statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><div class="spinner"></div> Fetching ${jiraSelectedKeys.size} issue(s) and generating test cases with AI... This may take a moment.</div>`;
 
   try {
@@ -2934,22 +2984,27 @@ async function generateTestsFromJira() {
         connection_id: jiraConnectionId,
         project_id: projectId,
         issue_keys: Array.from(jiraSelectedKeys),
-        preview
+        preview: true
       })
     });
 
-    const testCount = result.tests?.length || 0;
-    statusEl.innerHTML = `
-      <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✅ Generated ${testCount} test cases from ${jiraSelectedKeys.size} Jira issue(s)!</div>
-      <div style="font-size:12px;color:var(--text-2);margin-bottom:8px;">Model: ${result.model || 'AI'} | Confidence: ${Math.round((result.confidence || 0) * 100)}%</div>
-      ${result.jiraIssues ? `<div style="font-size:11px;color:var(--text-3);">Sources: ${result.jiraIssues.map(i => `${i.key} (${i.type})`).join(', ')}</div>` : ''}
-      <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn btn-primary btn-sm" onclick="switchPage('ai');toast('Jira-generated tests are shown in AI Lab','info');">View in AI Lab</button>
-        ${!preview ? `<button class="btn btn-sm" onclick="toast('Tests saved. Import them from AI Lab.','info');">Saved</button>` : '<span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;">Preview mode — tests not saved. Uncheck "Preview only" to save.</span>'}
-      </div>`;
+    jiraGeneratedTests = result.tests || [];
+    jiraTestSelectedKeys = new Set(jiraGeneratedTests.map(t => t.test_key));
 
-    if (result.tests && result.tests.length > 0) {
-      window._lastJiraGeneratedTests = result;
+    const testCount = jiraGeneratedTests.length;
+    const sources = result.jiraIssues ? result.jiraIssues.map(i => `${i.key} (${i.type})`).join(', ') : '';
+
+    statusEl.innerHTML = `
+      <div style="color:var(--green);font-weight:600;">✅ Generated ${testCount} test cases from ${jiraSelectedKeys.size} Jira issue(s)</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:4px;">Model: ${result.model || 'AI'} | Confidence: ${Math.round((result.confidence || 0) * 100)}%${sources ? ` | Sources: ${sources}` : ''}</div>
+      <div style="font-size:12px;color:var(--accent);margin-top:6px;font-weight:500;">👇 Select tests below and import them directly to your Test Suite</div>`;
+
+    if (testCount > 0) {
+      resultsArea.style.display = '';
+      document.getElementById('jiraTestCount').textContent = testCount;
+      populateJiraImportSuites();
+      renderJiraTestResults();
+      resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } catch (e) {
     statusEl.innerHTML = `<div style="color:var(--red);font-weight:600;">❌ Generation failed: ${e.message}</div>`;
@@ -2957,6 +3012,151 @@ async function generateTestsFromJira() {
 
   btn.disabled = false;
   btn.textContent = `🤖 Generate Test Cases from ${jiraSelectedKeys.size} Issue${jiraSelectedKeys.size > 1 ? 's' : ''}`;
+}
+
+function renderJiraTestResults() {
+  const container = document.getElementById('jiraTestsList');
+  const roleLabels = { qa_lead: '👑 QA Lead', senior_tester: '⭐ Senior Tester', tester: '🧪 Tester' };
+  const catColors = { functional: '#4C9AFF', negative: '#E5493A', edge_case: '#FF991F', ux: '#6554C0', data: '#00B8D9', security: '#FF5630' };
+
+  container.innerHTML = jiraGeneratedTests.map(t => {
+    const checked = jiraTestSelectedKeys.has(t.test_key);
+    const catColor = catColors[t.category] || 'var(--text-2)';
+    const pLabel = { 1: 'P1 Critical', 2: 'P2 High', 3: 'P3 Medium', 4: 'P4 Low' }[t.priority] || 'P3';
+    const pColor = { 1: 'var(--red)', 2: 'var(--yellow)', 3: 'var(--accent)', 4: 'var(--text-3)' }[t.priority] || 'var(--text-2)';
+    const stepCount = t.steps ? t.steps.length : 0;
+
+    return `
+      <div style="border-bottom:1px solid var(--border);${checked ? 'background:rgba(31,111,235,0.06);' : ''}" id="jira-test-${t.test_key}">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;" onclick="toggleJiraTest('${t.test_key}')">
+          <div style="width:20px;height:20px;border-radius:4px;border:2px solid ${checked ? 'var(--accent)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent)' : 'transparent'};transition:var(--transition);flex-shrink:0;">
+            ${checked ? '<span style="color:white;font-size:12px;font-weight:bold;">✓</span>' : ''}
+          </div>
+          <span style="font-size:11px;font-weight:700;color:var(--accent);min-width:55px;">${t.test_key}</span>
+          <span style="font-size:12px;color:var(--text-0);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" dir="auto">${t.title}</span>
+          ${t.assigned_role ? `<span style="font-size:10px;color:var(--text-3);white-space:nowrap;">${roleLabels[t.assigned_role] || t.assigned_role}</span>` : ''}
+          <span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${catColor};color:white;white-space:nowrap;">${t.category || 'func'}</span>
+          <span style="font-size:10px;color:${pColor};font-weight:600;white-space:nowrap;">${pLabel}</span>
+          <span style="font-size:10px;color:var(--text-3);white-space:nowrap;">${stepCount} steps</span>
+          <button class="btn btn-sm" onclick="event.stopPropagation();toggleJiraTestExpand('${t.test_key}')" style="font-size:10px;padding:2px 8px;">▼</button>
+        </div>
+        <div id="jira-test-detail-${t.test_key}" style="display:none;padding:0 14px 12px 46px;font-size:12px;">
+          ${t.description ? `<div style="color:var(--text-2);margin-bottom:8px;" dir="auto">${t.description}</div>` : ''}
+          ${t.preconditions ? `<div style="color:var(--text-3);margin-bottom:8px;font-style:italic;" dir="auto">Preconditions: ${t.preconditions}</div>` : ''}
+          ${stepCount > 0 ? `
+            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+              <thead><tr style="background:var(--bg-2);"><th style="padding:4px 8px;text-align:left;border:1px solid var(--border);">#</th><th style="padding:4px 8px;text-align:left;border:1px solid var(--border);">Action</th><th style="padding:4px 8px;text-align:left;border:1px solid var(--border);">Expected Result</th></tr></thead>
+              <tbody>${t.steps.map(s => `<tr><td style="padding:4px 8px;border:1px solid var(--border);width:30px;text-align:center;">${s.step}</td><td style="padding:4px 8px;border:1px solid var(--border);" dir="auto">${s.action}</td><td style="padding:4px 8px;border:1px solid var(--border);" dir="auto">${s.expected_result || ''}</td></tr>`).join('')}</tbody>
+            </table>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  updateJiraTestSelectionUI();
+}
+
+function toggleJiraTest(key) {
+  if (jiraTestSelectedKeys.has(key)) jiraTestSelectedKeys.delete(key);
+  else jiraTestSelectedKeys.add(key);
+  renderJiraTestResults();
+}
+
+function toggleAllJiraTests(select) {
+  if (select) jiraGeneratedTests.forEach(t => jiraTestSelectedKeys.add(t.test_key));
+  else jiraTestSelectedKeys.clear();
+  renderJiraTestResults();
+}
+
+function toggleJiraTestExpand(key) {
+  const el = document.getElementById(`jira-test-detail-${key}`);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function updateJiraTestSelectionUI() {
+  const count = jiraTestSelectedKeys.size;
+  document.getElementById('jiraImportSelCount').textContent = `(${count} selected)`;
+  const btn = document.getElementById('jiraImportBtn');
+  btn.disabled = count === 0;
+  btn.textContent = count > 0 ? `📥 Import ${count} Test${count > 1 ? 's' : ''} to Suite` : '📥 Import to Tests';
+}
+
+function populateJiraImportSuites() {
+  const sel = document.getElementById('jiraImportExistingSuite');
+  sel.innerHTML = '<option value="">— Create New Suite —</option>';
+  (allSuites || []).forEach(s => {
+    sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+  });
+}
+
+document.getElementById('jiraCreateRunToo')?.addEventListener('change', function() {
+  document.getElementById('jiraRunNameWrap').style.display = this.checked ? 'flex' : 'none';
+});
+
+async function importJiraTests() {
+  const selected = jiraGeneratedTests.filter(t => jiraTestSelectedKeys.has(t.test_key));
+  if (!selected.length) { toast('No tests selected', 'error'); return; }
+
+  const btn = document.getElementById('jiraImportBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Importing...';
+
+  try {
+    let suiteId = document.getElementById('jiraImportExistingSuite').value;
+
+    if (!suiteId) {
+      const name = document.getElementById('jiraImportSuiteName').value.trim();
+      if (!name) { toast('Enter a suite name or select an existing suite', 'error'); btn.disabled = false; updateJiraTestSelectionUI(); return; }
+      const existing = (allSuites || []).find(s => s.name === name);
+      if (existing) {
+        suiteId = existing.id;
+      } else {
+        const suite = await api('/api/tests/suites', { method: 'POST', body: JSON.stringify({ project_id: projectId, name, icon: '🔷' }) });
+        suiteId = suite.id;
+      }
+    }
+
+    const testIds = [];
+    let imported = 0;
+    for (const t of selected) {
+      try {
+        const created = await api('/api/tests/cases', { method: 'POST', body: JSON.stringify({
+          suite_id: suiteId,
+          test_key: t.test_key || `JIRA-${String(imported + 1).padStart(3, '0')}`,
+          title: t.title,
+          description: t.description || '',
+          preconditions: t.preconditions || '',
+          priority: t.priority || 2,
+          test_type: 'manual',
+          steps: (t.steps || []).map(s => ({ action: s.action, expected_result: s.expected_result || '' }))
+        }) });
+        testIds.push(created.id);
+        imported++;
+      } catch (e) { console.warn('Skip test:', t.test_key, e.message); }
+    }
+
+    const createRun = document.getElementById('jiraCreateRunToo').checked;
+    if (createRun && testIds.length > 0) {
+      const runName = document.getElementById('jiraRunName').value.trim() || `Jira Run — ${new Date().toLocaleDateString()}`;
+      await api('/api/tests/runs', { method: 'POST', body: JSON.stringify({
+        project_id: projectId, name: runName, environment: 'staging', test_case_ids: testIds
+      }) });
+      toast(`Imported ${imported} tests and created run "${runName}"!`, 'success');
+    } else {
+      toast(`Successfully imported ${imported} test cases to suite!`, 'success');
+    }
+
+    loadTests(); loadSuiteTree();
+
+    if (createRun) {
+      switchPage('tests');
+      setTimeout(() => document.querySelector('#page-tests .tab-bar button:nth-child(2)')?.click(), 300);
+    } else {
+      switchPage('tests');
+    }
+  } catch (e) { toast('Import failed: ' + e.message, 'error'); }
+
+  btn.disabled = false;
+  updateJiraTestSelectionUI();
 }
 
 // --- Init ---
