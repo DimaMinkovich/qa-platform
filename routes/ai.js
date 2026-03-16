@@ -19,8 +19,23 @@ router.post('/generate-tests', async (req, res) => {
   }
 
   try {
+    let projectContext = '';
+    try {
+      const docs = prepare(`SELECT name, doc_type, content FROM project_documents WHERE project_id = ? AND is_active = 1`).all(project_id);
+      docs.forEach(d => { projectContext += `\n=== ${d.doc_type}: ${d.name} ===\n${d.content}\n`; });
+      const git = prepare(`SELECT repo_info FROM project_git_connections WHERE project_id = ? AND is_active = 1`).get(project_id);
+      if (git && git.repo_info) {
+        try {
+          const info = JSON.parse(git.repo_info);
+          if (info.readme) projectContext += `\n=== GIT README ===\n${info.readme}\n`;
+          if (info.description) projectContext += `Description: ${info.description}\n`;
+        } catch {}
+      }
+    } catch {}
+
     const aiService = new AIService();
-    const result = await aiService.generateTests(source_type, source_content, options);
+    const mergedOptions = { ...(options || {}), projectContext };
+    const result = await aiService.generateTests(source_type, source_content, mergedOptions);
 
     if (preview) {
       return res.json({ id: null, preview: true, ...result });

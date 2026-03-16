@@ -118,6 +118,9 @@ tbody tr:hover { background: var(--bg-2); }
 .btn-success { background: rgba(63,185,80,0.2); border-color: var(--green); color: var(--green); }
 .btn-danger { background: rgba(248,81,73,0.2); border-color: var(--red); color: var(--red); }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
+#btnSelectAll:hover { background: var(--accent) !important; color: #fff !important; }
+#btnDeselectAll:hover { background: var(--red) !important; color: #fff !important; }
+#btnSelectAll:active, #btnDeselectAll:active { transform: scale(0.95); }
 .btn-icon { padding: 6px; min-width: 32px; justify-content: center; }
 
 /* Inputs */
@@ -215,6 +218,32 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
 .int-card .int-info p { font-size: 12px; color: var(--text-3); }
 .int-card .int-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-2); }
 
+/* Radio/Checkbox styling */
+input[type="radio"], input[type="checkbox"] { accent-color: var(--accent); }
+
+/* Custom AI test checkboxes */
+.ai-test-check { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; min-width:26px; border-radius:5px; cursor:pointer; flex-shrink:0; transition:all 0.15s ease; font-size:16px; font-weight:700; user-select:none; line-height:1; }
+.ai-test-check[data-checked="true"] { background:#1f6feb; border:2px solid #1f6feb; color:#fff; }
+.ai-test-check[data-checked="false"] { background:#161b22; border:2px solid #555; color:transparent; }
+.ai-test-check:hover { border-color:#1f6feb; box-shadow:0 0 0 3px rgba(31,111,235,0.25); }
+
+/* Import suite mode selection */
+input[name="importSuiteMode"]:checked ~ div strong { color: var(--accent) !important; }
+
+/* AI test card hover */
+.ai-test-card { transition: box-shadow 0.2s, border-color 0.2s; }
+.ai-test-card:hover { box-shadow: 0 2px 12px rgba(88,166,255,0.1); border-color: var(--border-light) !important; }
+
+/* Better focus states */
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.input:focus-visible { outline: none; }
+
+/* Details summary */
+details summary { list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: '▶ '; font-size: 10px; transition: transform 0.2s; display: inline-block; }
+details[open] summary::before { transform: rotate(90deg); }
+
 /* Responsive */
 @media (max-width: 1200px) { .dash-grid { grid-template-columns: 1fr; } .detail-panel { width: 320px; } }
 @media (max-width: 768px) { .sidebar { display: none; } .kpi-row { grid-template-columns: 1fr 1fr; } }
@@ -247,6 +276,7 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
       <button onclick="switchPage('bugs')">Bugs</button>
       <button onclick="switchPage('integrations')">Integrations</button>
       <button onclick="switchPage('ai')">AI Lab</button>
+      <button onclick="switchPage('project')">Project</button>
       <button onclick="switchPage('team')">Team</button>
     </nav>
     <div class="spacer"></div>
@@ -273,23 +303,35 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
       <!-- Tests Page -->
       <div class="page" id="page-tests">
         <div class="toolbar">
-          <input class="input" placeholder="Search tests..." id="testSearch" oninput="searchTests(this.value)" style="width:250px;">
-          <select class="input" id="testPriorityFilter" onchange="loadTests()"><option value="">All Priorities</option><option value="1">P1 - Critical</option><option value="2">P2 - High</option><option value="3">P3 - Medium</option><option value="4">P4 - Low</option></select>
+          <div class="tab-bar" style="border:none;padding:0;">
+            <button class="active" onclick="switchTestTab(this,'cases')">Test Cases</button>
+            <button onclick="switchTestTab(this,'runs')">Test Runs</button>
+          </div>
           <div class="spacer"></div>
-          <button class="btn btn-primary" onclick="openModal('newTestModal')">+ New Test Case</button>
-          <button class="btn btn-success" onclick="openModal('newRunModal')">▶ New Run</button>
+          <input class="input" placeholder="🔍 Type to search tests..." id="testSearch" oninput="searchTests(this.value)" style="width:220px;font-size:13px;">
+          <select class="input" id="testPriorityFilter" onchange="loadTests()" style="font-size:13px;"><option value="">All Priorities</option><option value="1">P1 - Critical</option><option value="2">P2 - High</option><option value="3">P3 - Medium</option><option value="4">P4 - Low</option></select>
+          <button class="btn btn-primary" onclick="openModal('newTestModal')" title="Create a new test case manually">+ New Test Case</button>
+          <button class="btn btn-success" onclick="openModal('newRunModal')" title="Start a new test execution run">▶ New Run</button>
+          <button class="btn" onclick="exportAllTestsCSV()" title="Export all test cases to CSV" style="border-color:var(--text-3);">📄 Export CSV</button>
         </div>
-        <div class="table-container"><table><thead><tr><th>Key</th><th>Title</th><th>Suite</th><th>Priority</th><th>Type</th><th>Critical</th></tr></thead><tbody id="testsBody"></tbody></table></div>
+        <div id="testTab-cases" style="display:flex;flex:1;overflow:hidden;">
+          <div class="table-container" style="flex:1;"><table><thead><tr><th>Key</th><th>Title</th><th>Suite</th><th>Priority</th><th>Type</th><th>Critical</th><th style="width:60px;">Actions</th></tr></thead><tbody id="testsBody"></tbody></table></div>
+          <div class="detail-panel" id="testDetail"></div>
+        </div>
+        <div id="testTab-runs" style="display:none;flex:1;overflow:hidden;">
+          <div class="table-container" style="flex:1;overflow-y:auto;"><table><thead><tr><th>Run Name</th><th>Environment</th><th>Build</th><th>Status</th><th>Tests</th><th>Passed</th><th>Failed</th><th>Created</th><th>Actions</th></tr></thead><tbody id="runsBody"></tbody></table></div>
+          <div class="detail-panel" id="runDetail" style="min-width:420px;"></div>
+        </div>
       </div>
 
       <!-- Bugs Page -->
       <div class="page" id="page-bugs">
         <div class="toolbar">
-          <input class="input" placeholder="Search bugs..." id="bugSearch" oninput="debounce(loadBugs,300)()" style="width:250px;">
-          <select class="input" id="bugStatusFilter" onchange="loadBugs()"><option value="">All Status</option><option value="open">Open</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="fixed">Fixed</option><option value="retest">Retest</option><option value="closed">Closed</option></select>
-          <select class="input" id="bugPriorityFilter" onchange="loadBugs()"><option value="">All Priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+          <input class="input" placeholder="🔍 Type to search bugs..." id="bugSearch" oninput="debounce(loadBugs,300)()" style="width:250px;font-size:13px;">
+          <select class="input" id="bugStatusFilter" onchange="loadBugs()" style="font-size:13px;"><option value="">All Status</option><option value="open">Open</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="fixed">Fixed</option><option value="retest">Retest</option><option value="closed">Closed</option></select>
+          <select class="input" id="bugPriorityFilter" onchange="loadBugs()" style="font-size:13px;"><option value="">All Priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
           <div class="spacer"></div>
-          <button class="btn btn-primary" onclick="openModal('newBugModal')">+ Report Bug</button>
+          <button class="btn btn-primary" onclick="openModal('newBugModal')" title="Report a new bug manually">+ Report Bug</button>
         </div>
         <div style="display:flex;flex:1;overflow:hidden;">
           <div class="table-container" style="flex:1;"><table><thead><tr><th>Key</th><th>Title</th><th>Status</th><th>Priority</th><th>Severity</th><th>Source</th><th>Assigned</th><th>Created</th></tr></thead><tbody id="bugsBody"></tbody></table></div>
@@ -316,18 +358,54 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
         <div class="toolbar"><h2 style="font-size:16px;color:var(--text-0);">🤖 AI Lab</h2><div class="spacer"></div><div id="aiStatusBadge"></div></div>
         <div style="display:flex;flex:1;overflow:hidden;">
           <div style="flex:1;padding:16px;overflow-y:auto;">
+            <div id="aiProjectKnowledgeBanner" style="margin-bottom:12px;display:none;"></div>
             <div id="aiConnectionCard" style="margin-bottom:16px;"></div>
+
+            <!-- Workflow Guide -->
+            <div id="aiWorkflowGuide" class="card" style="margin-bottom:16px;border-color:var(--accent);background:linear-gradient(135deg, rgba(31,111,235,0.08) 0%, rgba(31,111,235,0.02) 100%);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <h3 style="color:var(--accent);margin:0;font-size:15px;">📋 How to use — Step by Step</h3>
+                <button class="btn btn-sm" onclick="this.closest('.card').style.display='none'" style="font-size:11px;">Hide</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+                <div style="text-align:center;padding:12px;background:var(--bg-0);border-radius:var(--radius);border:1px solid var(--border);">
+                  <div style="font-size:28px;margin-bottom:6px;">1️⃣</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-0);margin-bottom:4px;">Paste Spec</div>
+                  <div style="font-size:11px;color:var(--text-3);">Copy your requirements document and paste it in the text box below</div>
+                </div>
+                <div style="text-align:center;padding:12px;background:var(--bg-0);border-radius:var(--radius);border:1px solid var(--border);">
+                  <div style="font-size:28px;margin-bottom:6px;">2️⃣</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-0);margin-bottom:4px;">Generate</div>
+                  <div style="font-size:11px;color:var(--text-3);">Click the blue "Generate" button. The AI will analyze and create test cases</div>
+                </div>
+                <div style="text-align:center;padding:12px;background:var(--bg-0);border-radius:var(--radius);border:1px solid var(--border);">
+                  <div style="font-size:28px;margin-bottom:6px;">3️⃣</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-0);margin-bottom:4px;">Review</div>
+                  <div style="font-size:11px;color:var(--text-3);">Review the generated tests. Use checkboxes to select which ones to keep</div>
+                </div>
+                <div style="text-align:center;padding:12px;background:var(--bg-0);border-radius:var(--radius);border:1px solid var(--border);">
+                  <div style="font-size:28px;margin-bottom:6px;">4️⃣</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-0);margin-bottom:4px;">Import</div>
+                  <div style="font-size:11px;color:var(--text-3);">Click "Import to Tests" to add them to your project. Then run them from Tests tab</div>
+                </div>
+              </div>
+            </div>
+
             <div class="tab-bar" style="margin-bottom:16px;padding:0;"><button class="active" onclick="switchAITab(this,'generate')">Generate Tests</button><button onclick="switchAITab(this,'duplicates')">Duplicate Detection</button><button onclick="switchAITab(this,'risk')">Risk Prediction</button></div>
             <div id="aiTab-generate">
               <div class="card">
                 <h3>📝 Generate Test Cases from Requirements</h3>
-                <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
-                  <div class="input-group"><label>Source Type</label><select class="input" id="aiSourceType"><option value="prd">PRD / Product Requirements</option><option value="user_story">User Stories</option><option value="api_spec">API Specification</option><option value="free_text">Free Text</option></select></div>
-                  <div class="input-group"><label>Paste your requirements</label><textarea class="input" id="aiSourceContent" rows="8" placeholder="Paste your PRD, user stories, or API spec here..." dir="auto"></textarea></div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <button class="btn btn-primary" onclick="generateTests()" id="aiGenerateBtn" style="flex:1;">🤖 Generate Test Cases</button>
-                    <button class="btn" onclick="clearAILab()" id="aiClearBtn" style="background:var(--bg-2);color:var(--text-2);border:1px solid var(--border);min-width:100px;">🗑️ Clear</button>
-                    <label style="display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:13px;cursor:pointer;white-space:nowrap;"><input type="checkbox" id="aiPreviewMode" checked> Preview only (don't save)</label>
+                <p style="color:var(--text-3);font-size:12px;margin-bottom:8px;">Paste your specification or requirements below. The system will analyze it and generate detailed manual test cases.</p>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+                  <div class="input-group"><label>Source Type <span style="color:var(--text-3);font-weight:normal;">(What kind of document are you pasting?)</span></label><select class="input" id="aiSourceType" style="font-size:14px;padding:10px 12px;"><option value="prd">PRD / Product Requirements</option><option value="user_story">User Stories</option><option value="api_spec">API Specification</option><option value="free_text">Free Text</option></select></div>
+                  <div class="input-group"><label>Paste your requirements here <span style="color:var(--text-3);font-weight:normal;">(Hebrew or English)</span></label><textarea class="input" id="aiSourceContent" rows="10" placeholder="Paste your specification document here...&#10;&#10;You can paste in Hebrew or English.&#10;The more detailed the spec, the better the test cases." dir="auto" style="font-size:14px;line-height:1.6;"></textarea></div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="generateTests()" id="aiGenerateBtn" style="flex:1;min-width:200px;padding:12px 20px;font-size:15px;justify-content:center;">🤖 Generate Test Cases</button>
+                    <button class="btn" onclick="clearAILab()" id="aiClearBtn" style="background:var(--bg-2);color:var(--text-2);border:1px solid var(--border);padding:12px 16px;font-size:14px;">🗑️ Clear</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--bg-0);border-radius:var(--radius-sm);">
+                    <label style="display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:13px;cursor:pointer;white-space:nowrap;"><input type="checkbox" id="aiPreviewMode" checked> Preview only (don't save to database automatically)</label>
+                    <span style="color:var(--text-3);font-size:11px;">Tip: Keep checked to review first, then import what you need</span>
                   </div>
                 </div>
               </div>
@@ -349,6 +427,251 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
               <div id="riskResults" style="margin-top:16px;"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Project Knowledge Page -->
+      <div class="page" id="page-project">
+        <div class="toolbar">
+          <h2 style="font-size:16px;color:var(--text-0);">🧠 Project Knowledge Base</h2>
+          <div class="spacer"></div>
+          <div id="projectContextStatus" style="font-size:12px;padding:4px 10px;border-radius:var(--radius-sm);background:var(--bg-2);color:var(--text-2);"></div>
+        </div>
+        <div style="flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Hero Banner — Explain what this is -->
+          <div id="projectKnowledgeBanner" style="background:linear-gradient(135deg, rgba(31,111,235,0.15), rgba(188,140,255,0.10));border:1px solid var(--accent-muted);border-radius:var(--radius);padding:20px 24px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div style="font-size:40px;line-height:1;">🧠</div>
+              <div style="flex:1;">
+                <h3 style="color:var(--text-0);font-size:16px;margin:0 0 6px 0;">This is your system's brain — teach the AI about your project</h3>
+                <p style="color:var(--text-2);font-size:13px;margin:0;line-height:1.5;">Upload a document that describes your system, and the AI will <strong style="color:var(--accent);">always use it as the foundation</strong> when generating test cases.<br>No Git required — just paste or upload any document: architecture, specification, PRD, user guide, or business description.</p>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(88,166,255,0.2);">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);">
+                <span style="font-size:16px;">1️⃣</span> Upload your system document here
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);">
+                <span style="font-size:16px;">2️⃣</span> Go to AI Lab and paste a new spec
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);">
+                <span style="font-size:16px;">3️⃣</span> AI generates tests with full system context
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-content:start;">
+
+          <!-- LEFT: System Documents (Primary) -->
+          <div style="flex:1.5;min-width:440px;">
+            <div style="background:var(--bg-1);border:2px solid var(--accent-muted);border-radius:var(--radius);padding:20px;">
+              <h3 style="font-size:15px;color:var(--text-0);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">📄</span> System Documents
+                <span style="font-size:11px;background:var(--accent-muted);color:white;padding:2px 8px;border-radius:10px;font-weight:400;">Foundation for AI</span>
+              </h3>
+              <p style="font-size:12px;color:var(--text-2);margin-bottom:16px;">Paste or upload a document that describes your system. This becomes the <strong style="color:var(--accent);">permanent knowledge base</strong> — the AI will reference it every time you generate tests or upload a new specification.</p>
+
+              <!-- Upload method tabs -->
+              <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <button class="btn btn-sm btn-primary" onclick="showDocInput('paste')" id="docPasteTab" style="flex:1;">📋 Paste Text</button>
+                <button class="btn btn-sm" onclick="showDocInput('upload')" id="docUploadTab" style="flex:1;">📁 Upload File</button>
+              </div>
+
+              <!-- Paste text input -->
+              <div id="docPasteSection">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Document Name *</label>
+                <input type="text" id="docName" class="input" placeholder="e.g. Payment System Architecture v2.0" style="width:100%;margin-bottom:10px;">
+
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Document Type</label>
+                <select id="docType" class="input" style="width:100%;margin-bottom:10px;">
+                  <option value="specification">Specification / PRD</option>
+                  <option value="architecture">System Architecture</option>
+                  <option value="api_doc">API Documentation</option>
+                  <option value="user_guide">User Guide</option>
+                  <option value="requirements">Business Requirements</option>
+                  <option value="release_notes">Release Notes</option>
+                  <option value="other">Other</option>
+                </select>
+
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Content *</label>
+                <textarea id="docContent" class="input" rows="12" placeholder="Paste your system document here — architecture description, business flows, module list, technical overview..." style="width:100%;font-family:inherit;resize:vertical;min-height:220px;" dir="auto"></textarea>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                  <span id="docWordCount" style="font-size:11px;color:var(--text-3);">0 words</span>
+                  <button class="btn btn-primary" onclick="saveDocumentText()" id="saveDocBtn" style="padding:10px 24px;font-size:14px;font-weight:600;">💾 Save to Knowledge Base</button>
+                </div>
+              </div>
+
+              <!-- File upload input -->
+              <div id="docUploadSection" style="display:none;">
+                <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:var(--transition);" id="dropZone"
+                  ondrop="handleFileDrop(event)" ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-muted)';" ondragleave="this.style.borderColor='var(--border)';this.style.background='transparent';">
+                  <div style="font-size:36px;margin-bottom:8px;">📁</div>
+                  <div style="font-size:14px;color:var(--text-1);font-weight:500;">Drag & Drop your file here</div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:4px;">or click to browse</div>
+                  <div style="font-size:11px;color:var(--text-3);margin-top:8px;">Supports: .txt, .md, .json, .csv, .html, .xml (max 10MB)</div>
+                  <input type="file" id="docFileInput" style="display:none;" accept=".txt,.md,.json,.csv,.html,.xml,.doc,.docx" onchange="handleFileSelect(this)">
+                </div>
+                <script>document.getElementById('dropZone').addEventListener('click', () => document.getElementById('docFileInput').click());</script>
+              </div>
+            </div>
+
+            <!-- Uploaded Documents List -->
+            <div style="margin-top:12px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <h4 style="font-size:13px;color:var(--text-0);display:flex;align-items:center;gap:6px;margin:0;">
+                  🧠 Active Knowledge Base <span id="docCount" style="font-size:11px;background:var(--accent-muted);color:white;padding:1px 7px;border-radius:10px;">0</span>
+                </h4>
+                <span style="font-size:11px;color:var(--text-3);">The AI reads all active documents when generating tests</span>
+              </div>
+              <div id="docList" style="max-height:300px;overflow-y:auto;">
+                <p style="font-size:12px;color:var(--text-3);text-align:center;padding:20px;">No documents uploaded yet. Add your system document above — it will become the AI's knowledge base.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Git Connection (Secondary / Optional) -->
+          <div style="flex:1;min-width:320px;max-width:480px;">
+            <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+              <h3 style="font-size:15px;color:var(--text-0);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">🔗</span> Git Repository
+                <span style="font-size:10px;background:var(--bg-3);color:var(--text-3);padding:2px 8px;border-radius:10px;font-weight:400;">Optional</span>
+              </h3>
+              <p style="font-size:12px;color:var(--text-2);margin-bottom:16px;">If you have a Git repository, connect it for extra context. The AI will also learn from your README and code structure.</p>
+
+              <div id="gitConnectionStatus"></div>
+
+              <div id="gitConnectForm">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Repository URL *</label>
+                <input type="text" id="gitRepoUrl" class="input" placeholder="https://github.com/owner/repo" style="width:100%;margin-bottom:10px;">
+
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Branch</label>
+                <input type="text" id="gitBranch" class="input" placeholder="main" value="main" style="width:100%;margin-bottom:10px;">
+
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Access Token <span style="font-weight:400;color:var(--text-3);">(for private repos)</span></label>
+                <input type="password" id="gitToken" class="input" placeholder="ghp_... or glpat-..." style="width:100%;margin-bottom:6px;">
+                <p style="font-size:11px;color:var(--text-3);margin-bottom:14px;">GitHub: Settings > Developer settings > Personal access tokens</p>
+
+                <button class="btn btn-primary" onclick="connectGitRepo()" id="gitConnectBtn" style="width:100%;padding:10px;font-size:13px;font-weight:600;">🔗 Connect Repository</button>
+              </div>
+            </div>
+
+            <div id="gitRepoInfo" style="display:none;margin-top:12px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+              <h4 style="font-size:13px;color:var(--text-0);margin-bottom:8px;">📊 Repository Info</h4>
+              <div id="gitRepoDetails"></div>
+            </div>
+          </div>
+
+          </div>
+
+          <!-- JIRA INTEGRATION SECTION -->
+          <div style="background:var(--bg-1);border:2px solid rgba(0,82,204,0.4);border-radius:var(--radius);padding:20px;">
+            <h3 style="font-size:15px;color:var(--text-0);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:22px;">🔷</span> Jira Integration
+              <span style="font-size:11px;background:rgba(0,82,204,0.25);color:#4C9AFF;padding:2px 8px;border-radius:10px;font-weight:400;">Cloud + Server + Data Center</span>
+            </h3>
+            <p style="font-size:12px;color:var(--text-2);margin-bottom:16px;">Connect to any Jira instance to pull User Stories, Epics, and Tasks — then auto-generate test cases from them using AI.</p>
+
+            <div id="jiraConnectionArea">
+              <!-- Connection Status -->
+              <div id="jiraConnectedBanner" style="display:none;background:rgba(63,185,80,0.1);border:1px solid var(--green);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:22px;">✅</span>
+                  <div style="flex:1;">
+                    <strong id="jiraConnUserName" style="color:var(--green);font-size:13px;">Connected</strong>
+                    <div id="jiraConnDetails" style="font-size:11px;color:var(--text-2);margin-top:2px;"></div>
+                  </div>
+                  <button class="btn btn-sm" onclick="disconnectJira()" style="color:var(--red);border-color:var(--red);font-size:11px;">Disconnect</button>
+                </div>
+              </div>
+
+              <!-- Connect Form -->
+              <div id="jiraConnectForm">
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                  <button class="btn btn-sm btn-primary" onclick="showJiraAuthType('cloud')" id="jiraCloudTab">☁️ Jira Cloud</button>
+                  <button class="btn btn-sm" onclick="showJiraAuthType('server')" id="jiraServerTab">🖥️ Jira Server / Data Center</button>
+                </div>
+
+                <div id="jiraCloudForm">
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Jira Cloud URL *</label>
+                  <input type="text" id="jiraUrl" class="input" placeholder="https://your-org.atlassian.net" style="width:100%;margin-bottom:10px;">
+
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Email *</label>
+                  <input type="text" id="jiraEmail" class="input" placeholder="your-email@company.com" style="width:100%;margin-bottom:10px;">
+
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">API Token *</label>
+                  <input type="password" id="jiraToken" class="input" placeholder="Your Atlassian API token" style="width:100%;margin-bottom:6px;">
+                  <p style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Create at: <a href="https://id.atlassian.net/manage-profile/security/api-tokens" target="_blank" style="color:var(--accent);">Atlassian API Tokens</a></p>
+                </div>
+
+                <div id="jiraServerForm" style="display:none;">
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Jira Server URL *</label>
+                  <input type="text" id="jiraServerUrl" class="input" placeholder="https://jira.your-company.com" style="width:100%;margin-bottom:10px;">
+
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Personal Access Token *</label>
+                  <input type="password" id="jiraServerToken" class="input" placeholder="Your Jira PAT" style="width:100%;margin-bottom:6px;">
+                  <p style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Jira Server/DC: Profile > Personal Access Tokens > Create Token</p>
+                </div>
+
+                <button class="btn btn-primary" onclick="connectJira()" id="jiraConnectBtn" style="width:100%;padding:10px;font-size:13px;font-weight:600;">🔷 Connect to Jira</button>
+              </div>
+            </div>
+
+            <!-- Jira Project & Issues Browser (hidden until connected) -->
+            <div id="jiraBrowser" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+              <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px;">
+                <div style="flex:1;min-width:200px;">
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Jira Project</label>
+                  <select id="jiraProjectSelect" class="input" onchange="onJiraProjectChange()" style="width:100%;">
+                    <option value="">Select a project...</option>
+                  </select>
+                </div>
+                <div style="min-width:160px;">
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Issue Type</label>
+                  <select id="jiraTypeFilter" class="input" style="width:100%;">
+                    <option value="">All Types</option>
+                    <option value="Epic">Epic</option>
+                    <option value="Story">Story</option>
+                    <option value="Task">Task</option>
+                    <option value="Bug">Bug</option>
+                  </select>
+                </div>
+                <div style="min-width:160px;">
+                  <label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Search</label>
+                  <input type="text" id="jiraSearchText" class="input" placeholder="Search issues..." style="width:100%;">
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="searchJiraIssues()" style="padding:8px 16px;">🔍 Search</button>
+              </div>
+
+              <div id="jiraIssuesArea" style="display:none;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <div style="font-size:12px;color:var(--text-2);">
+                    <span id="jiraIssueCount">0</span> issues found
+                    <span id="jiraSelectedCount" style="margin-left:12px;color:var(--accent);font-weight:600;display:none;">(<span id="jiraSelNum">0</span> selected)</span>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button class="btn btn-sm" onclick="toggleAllJiraIssues(true)" style="font-size:11px;">Select All</button>
+                    <button class="btn btn-sm" onclick="toggleAllJiraIssues(false)" style="font-size:11px;color:var(--red);border-color:var(--red);">Deselect All</button>
+                  </div>
+                </div>
+
+                <div id="jiraIssuesList" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);"></div>
+
+                <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
+                  <button class="btn btn-primary" onclick="generateTestsFromJira()" id="jiraGenerateBtn" disabled style="padding:10px 24px;font-size:14px;font-weight:600;flex:0 0 auto;">
+                    🤖 Generate Test Cases from Selected Issues
+                  </button>
+                  <label style="font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="jiraPreviewOnly" checked> Preview only (don't save)
+                  </label>
+                </div>
+
+                <div id="jiraGenerateStatus" style="display:none;margin-top:12px;padding:12px;border-radius:var(--radius);background:var(--bg-2);font-size:13px;color:var(--text-1);"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -408,6 +731,36 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
   </div>
 </div>
 
+<div class="modal-overlay" id="editTestModal">
+  <div class="modal" style="width:700px;">
+    <div class="modal-header"><h2>✏️ Edit Test Case</h2><button class="close-btn" onclick="closeModal('editTestModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editTestId">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Test Key</label><input class="input" id="editTestKey" disabled style="opacity:0.6;"></div>
+        <div class="input-group"><label>Suite</label><select class="input" id="editTestSuite"></select></div>
+      </div>
+      <div class="input-group"><label>Title *</label><input class="input" id="editTestTitle" placeholder="Test case title"></div>
+      <div class="input-group"><label>Description</label><textarea class="input" id="editTestDesc" rows="2" dir="auto"></textarea></div>
+      <div class="input-group"><label>Preconditions</label><textarea class="input" id="editTestPreconditions" rows="2" dir="auto"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="input-group"><label>Priority</label><select class="input" id="editTestPriority"><option value="1">P1 - Critical</option><option value="2">P2 - High</option><option value="3">P3 - Medium</option><option value="4">P4 - Low</option></select></div>
+        <div class="input-group"><label>Type</label><select class="input" id="editTestType"><option value="manual">Manual</option><option value="automated">Automated</option><option value="hybrid">Hybrid</option></select></div>
+        <div class="input-group"><label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="editTestCritical"> Critical Test</label></div>
+      </div>
+      <div class="input-group">
+        <label>Steps</label>
+        <div id="editTestSteps"></div>
+        <button class="btn btn-sm" onclick="addEditStepRow()">+ Add Step</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('editTestModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTestEdit()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="newSuiteModal">
   <div class="modal" style="width:420px;">
     <div class="modal-header"><h2>📁 New Test Suite</h2><button class="close-btn" onclick="closeModal('newSuiteModal')">&times;</button></div>
@@ -442,6 +795,95 @@ textarea.input { resize: vertical; min-height: 60px; font-family: inherit; }
       <div class="input-group"><label>API Token (optional)</label><input class="input" id="intToken" type="password" placeholder="Token or secret"></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('newIntegrationModal')">Cancel</button><button class="btn btn-primary" onclick="createIntegration()">Connect</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="importTestsModal">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header"><h2 id="importModalTitle">📥 Import Tests to Suite</h2><button class="close-btn" onclick="closeModal('importTestsModal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="background:var(--accent-muted);color:white;padding:12px 16px;border-radius:var(--radius-sm);display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:22px;">📋</span>
+        <div><strong><span id="importTestCount">0</span> test cases</strong> selected for import<br><span style="font-size:12px;opacity:0.8;">These will be added to the selected test suite in your project</span></div>
+      </div>
+
+      <div class="input-group" style="margin-top:8px;">
+        <label style="font-size:13px;font-weight:600;">Where to import?</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-0);border-radius:var(--radius-sm);cursor:pointer;border:2px solid var(--accent);">
+            <input type="radio" name="importSuiteMode" value="new" checked onchange="toggleImportSuiteMode('new')" style="accent-color:var(--accent);">
+            <div><strong style="color:var(--text-0);">Create new test suite</strong><br><span style="font-size:12px;color:var(--text-3);">A new folder will be created for these tests</span></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-0);border-radius:var(--radius-sm);cursor:pointer;border:2px solid var(--border);">
+            <input type="radio" name="importSuiteMode" value="existing" onchange="toggleImportSuiteMode('existing')" style="accent-color:var(--accent);">
+            <div><strong style="color:var(--text-0);">Add to existing test suite</strong><br><span style="font-size:12px;color:var(--text-3);">Import into a suite that already exists</span></div>
+          </label>
+        </div>
+      </div>
+
+      <div id="importNewSuiteRow" class="input-group" style="margin-top:8px;">
+        <label>New Suite Name</label>
+        <input class="input" id="importNewSuiteName" placeholder="e.g. Sprint 14 — Login Tests" style="font-size:14px;padding:10px;">
+      </div>
+
+      <div id="importExistingSuiteRow" class="input-group" style="display:none;margin-top:8px;">
+        <label>Select Existing Suite</label>
+        <select class="input" id="importExistingSuiteSelect" style="font-size:14px;padding:10px;"></select>
+      </div>
+
+      <div id="importRunSection" style="display:none;margin-top:8px;padding:12px;background:var(--green-bg);border-radius:var(--radius-sm);border:1px solid var(--green);">
+        <div class="input-group">
+          <label style="color:var(--green);font-weight:600;">Test Run Name</label>
+          <input class="input" id="importRunName" placeholder="e.g. Regression Run — Sprint 14" style="font-size:14px;padding:10px;">
+        </div>
+        <div class="input-group" style="margin-top:8px;">
+          <label style="color:var(--green);">Environment</label>
+          <select class="input" id="importRunEnv" style="font-size:14px;padding:10px;">
+            <option value="staging">Staging</option>
+            <option value="production">Production</option>
+            <option value="development">Development</option>
+            <option value="qa">QA</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('importTestsModal')">Cancel</button>
+      <button class="btn btn-primary" id="importSubmitBtn" onclick="executeImport()" style="padding:10px 24px;font-size:14px;">📥 Import Tests</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addToRunModal">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header"><h2>▶ Add Test to Run</h2><button class="close-btn" onclick="closeModal('addToRunModal')">&times;</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;" id="addToRunTestInfo"></p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label style="display:flex;align-items:center;gap:8px;padding:12px;background:var(--bg-0);border-radius:var(--radius-sm);cursor:pointer;border:2px solid var(--accent);">
+          <input type="radio" name="addToRunMode" value="new" checked onchange="document.getElementById('addToRunNewFields').style.display='block';document.getElementById('addToRunExistingFields').style.display='none';">
+          <div><strong style="color:var(--text-0);">Create new Test Run</strong><br><span style="font-size:12px;color:var(--text-3);">Create a fresh run with this test case</span></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;padding:12px;background:var(--bg-0);border-radius:var(--radius-sm);cursor:pointer;border:2px solid var(--border);">
+          <input type="radio" name="addToRunMode" value="existing" onchange="document.getElementById('addToRunNewFields').style.display='none';document.getElementById('addToRunExistingFields').style.display='block';loadExistingRuns();">
+          <div><strong style="color:var(--text-0);">Add to existing Run</strong><br><span style="font-size:12px;color:var(--text-3);">Add this test to a run that already exists</span></div>
+        </label>
+      </div>
+      <div id="addToRunNewFields" style="margin-top:12px;">
+        <div class="input-group"><label>Run Name *</label><input class="input" id="addToRunNewName" placeholder="e.g. Regression Run 1"></div>
+        <div style="display:flex;gap:8px;">
+          <div class="input-group" style="flex:1;"><label>Environment</label><select class="input" id="addToRunNewEnv"><option value="staging">Staging</option><option value="production">Production</option><option value="dev">Development</option><option value="qa">QA</option></select></div>
+          <div class="input-group" style="flex:1;"><label>Build</label><input class="input" id="addToRunNewBuild" placeholder="e.g. v1.2.0"></div>
+        </div>
+      </div>
+      <div id="addToRunExistingFields" style="display:none;margin-top:12px;">
+        <div class="input-group"><label>Select Run</label><select class="input" id="addToRunExistingSelect"><option value="">Loading...</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" onclick="closeModal('addToRunModal')">Cancel</button>
+      <button class="btn btn-success" onclick="executeAddToRun()" style="padding:10px 24px;font-size:14px;">▶ Add & Go to Run</button>
+    </div>
   </div>
 </div>
 
@@ -511,13 +953,16 @@ async function showApp() {
 
 function switchPage(page) {
   document.querySelectorAll('.top-bar nav button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
+  else document.querySelectorAll('.top-bar nav button').forEach(b => { if (b.textContent.toLowerCase().includes(page === 'ai' ? 'ai' : page)) b.classList.add('active'); });
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   document.getElementById('sidebar').style.display = (page === 'tests') ? '' : 'none';
   if (page === 'dashboard') loadDashboard();
+  if (page === 'tests') { loadTests(); loadTestRuns(); }
   if (page === 'team') loadTeam();
   if (page === 'ai') loadAIStatus();
+  if (page === 'project') loadProjectKnowledge();
 }
 
 // --- Suite Tree ---
@@ -614,6 +1059,16 @@ async function loadDashboard() {
 }
 
 // --- Tests ---
+let allTestsCache = [];
+
+function switchTestTab(btn, tab) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('testTab-cases').style.display = tab === 'cases' ? 'flex' : 'none';
+  document.getElementById('testTab-runs').style.display = tab === 'runs' ? 'flex' : 'none';
+  if (tab === 'runs') loadTestRuns();
+}
+
 async function loadTests() {
   if (!projectId) return;
   let url = `/api/tests/cases?project_id=${projectId}`;
@@ -622,16 +1077,8 @@ async function loadTests() {
   if (priority) url += `&priority=${priority}`;
   try {
     const tests = await api(url);
-    document.getElementById('testsBody').innerHTML = tests.length > 0 ? tests.map(t => `
-      <tr style="cursor:pointer;" onclick="showTestDetail('${t.id}')">
-        <td><span style="color:var(--accent);font-weight:600;">${t.test_key}</span></td>
-        <td>${t.title}</td>
-        <td style="color:var(--text-2);font-size:12px;">${t.suite_icon || ''} ${t.suite_name || ''}</td>
-        <td><span class="badge badge-${t.priority <= 1 ? 'red' : t.priority <= 2 ? 'yellow' : 'gray'}">P${t.priority}</span></td>
-        <td><span class="badge badge-${t.test_type}">${t.test_type}</span></td>
-        <td>${t.is_critical ? '🔴' : ''}</td>
-      </tr>
-    `).join('') : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No test cases found. Select a suite or create a new test.</td></tr>';
+    allTestsCache = tests;
+    renderTestTable(tests);
   } catch (e) { console.error(e); }
 }
 
@@ -643,7 +1090,7 @@ function searchTests(q) {
 }
 
 function renderTestTable(tests) {
-  document.getElementById('testsBody').innerHTML = tests.map(t => `
+  document.getElementById('testsBody').innerHTML = tests.length > 0 ? tests.map(t => `
     <tr style="cursor:pointer;" onclick="showTestDetail('${t.id}')">
       <td><span style="color:var(--accent);font-weight:600;">${t.test_key}</span></td>
       <td>${t.title}</td>
@@ -651,17 +1098,542 @@ function renderTestTable(tests) {
       <td><span class="badge badge-${t.priority <= 1 ? 'red' : t.priority <= 2 ? 'yellow' : 'gray'}">P${t.priority}</span></td>
       <td><span class="badge badge-${t.test_type}">${t.test_type}</span></td>
       <td>${t.is_critical ? '🔴' : ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm btn-icon btn-success" onclick="event.stopPropagation();addTestToRun('${t.id}','${t.test_key}')" title="Add to Test Run" style="font-size:11px;">▶</button>
+        <button class="btn btn-sm btn-icon" onclick="event.stopPropagation();editTestInModal('${t.id}')" title="Edit">✏️</button>
+        <button class="btn btn-sm btn-icon btn-danger" onclick="event.stopPropagation();deleteTest('${t.id}','${t.test_key}')" title="Delete">🗑️</button>
+      </td>
     </tr>
-  `).join('');
+  `).join('') : `<tr><td colspan="7" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:36px;margin-bottom:12px;">📋</div>
+    <div style="color:var(--text-2);font-size:15px;font-weight:600;margin-bottom:8px;">No test cases yet</div>
+    <div style="color:var(--text-3);font-size:13px;max-width:400px;margin:0 auto;">You can create test cases manually with "+ New Test Case" or generate them automatically from AI Lab.</div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;">
+      <button class="btn btn-primary" onclick="openModal('newTestModal')">+ New Test Case</button>
+      <button class="btn" onclick="switchPage('ai')" style="border-color:var(--accent);color:var(--accent);">🤖 Go to AI Lab</button>
+    </div>
+  </td></tr>`;
 }
 
 async function showTestDetail(id) {
   try {
-    const tests = await api(`/api/tests/cases?project_id=${projectId}`);
-    const t = tests.find(tc => tc.id === id);
+    let t = allTestsCache.find(tc => tc.id === id);
+    if (!t) {
+      const tests = await api(`/api/tests/cases?project_id=${projectId}`);
+      t = tests.find(tc => tc.id === id);
+    }
     if (!t) return;
-    toast(`Viewing: ${t.test_key} - ${t.title}`);
-  } catch(e) {}
+    const panel = document.getElementById('testDetail');
+    panel.classList.add('open');
+    panel.innerHTML = `
+      <div class="detail-header">
+        <h3 style="font-size:14px;color:var(--text-0);">${t.test_key}</h3>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="btn btn-sm" onclick="editTestInModal('${t.id}')" title="Edit test case">✏️</button>
+          <button class="btn btn-sm" onclick="cloneTestCase('${t.id}')" title="Duplicate test case">📋</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTest('${t.id}','${t.test_key}')" title="Delete test case">🗑️</button>
+          <button class="close-btn" onclick="document.getElementById('testDetail').classList.remove('open')">&times;</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <h4 style="font-size:15px;color:var(--text-0);margin-bottom:4px;" dir="auto">${t.title}</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          <span class="badge badge-${t.priority <= 1 ? 'red' : t.priority <= 2 ? 'yellow' : 'gray'}">P${t.priority}</span>
+          <span class="badge badge-${t.test_type}">${t.test_type}</span>
+          ${t.is_critical ? '<span class="badge badge-red">Critical</span>' : ''}
+        </div>
+        <div class="detail-section">
+          <h4>Suite</h4>
+          <p style="font-size:13px;color:var(--text-1);">${t.suite_icon || ''} ${t.suite_name || ''}</p>
+        </div>
+        ${t.description ? `<div class="detail-section"><h4>Description</h4><p style="font-size:13px;color:var(--text-2);white-space:pre-wrap;" dir="auto">${t.description}</p></div>` : ''}
+        ${t.preconditions ? `<div class="detail-section"><h4>Preconditions</h4><p style="font-size:13px;color:var(--purple);white-space:pre-wrap;" dir="auto">${t.preconditions}</p></div>` : ''}
+        <div class="detail-section">
+          <h4>Test Steps (${(t.steps || []).length})</h4>
+          <div class="step-list">
+            ${(t.steps || []).map((s, i) => `
+              <div class="step-item">
+                <div class="step-num">${s.step_number || i + 1}</div>
+                <div style="flex:1;">
+                  <div class="step-text" dir="auto">${s.action}</div>
+                  ${s.expected_result ? `<div class="step-expected" dir="auto">✓ ${s.expected_result}</div>` : ''}
+                  ${s.test_data ? `<div style="font-size:11px;color:var(--cyan);margin-top:2px;">Data: ${s.test_data}</div>` : ''}
+                </div>
+              </div>
+            `).join('')}
+            ${(t.steps || []).length === 0 ? '<p style="color:var(--text-3);font-size:13px;">No steps defined</p>' : ''}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Info</h4>
+          <div class="detail-row"><span class="label">Created by</span><span class="value">${t.created_by_name || '—'}</span></div>
+          <div class="detail-row"><span class="label">Created</span><span class="value">${t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</span></div>
+          ${t.updated_at ? `<div class="detail-row"><span class="label">Updated</span><span class="value">${new Date(t.updated_at).toLocaleDateString()}</span></div>` : ''}
+        </div>
+        <div class="detail-section" style="border-top:1px solid var(--border);padding-top:12px;">
+          <button class="btn btn-success" onclick="addTestToRun('${t.id}','${t.test_key}')" style="font-size:13px;width:100%;margin-bottom:8px;padding:10px;">▶ Add to Test Run</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-primary" onclick="editTestInModal('${t.id}')" style="font-size:12px;">✏️ Edit</button>
+            <button class="btn btn-sm" onclick="cloneTestCase('${t.id}')" style="font-size:12px;">📋 Clone</button>
+            <button class="btn btn-sm" onclick="exportSingleTestCSV('${t.id}')" style="font-size:12px;">📄 Export</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function editTestInModal(id) {
+  try {
+    let t = allTestsCache.find(tc => tc.id === id);
+    if (!t) {
+      const tests = await api(`/api/tests/cases?project_id=${projectId}`);
+      t = tests.find(tc => tc.id === id);
+    }
+    if (!t) return;
+
+    const flat = [];
+    const flatten = (suites, prefix = '') => suites.forEach(s => { flat.push({ id: s.id, name: prefix + s.name }); if (s.children) flatten(s.children, prefix + s.name + ' > '); });
+    flatten(allSuites);
+    const suiteOptions = flat.map(s => `<option value="${s.id}" ${s.id === t.suite_id ? 'selected' : ''}>${s.name}</option>`).join('');
+
+    const modal = document.getElementById('editTestModal');
+    if (!modal) return;
+    document.getElementById('editTestId').value = t.id;
+    document.getElementById('editTestKey').value = t.test_key;
+    document.getElementById('editTestSuite').innerHTML = suiteOptions;
+    document.getElementById('editTestTitle').value = t.title;
+    document.getElementById('editTestDesc').value = t.description || '';
+    document.getElementById('editTestPreconditions').value = t.preconditions || '';
+    document.getElementById('editTestPriority').value = t.priority;
+    document.getElementById('editTestType').value = t.test_type;
+    document.getElementById('editTestCritical').checked = t.is_critical;
+
+    const stepsContainer = document.getElementById('editTestSteps');
+    stepsContainer.innerHTML = '';
+    (t.steps || []).forEach((s, i) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:start;';
+      div.innerHTML = `<span style="min-width:24px;color:var(--text-3);padding-top:8px;">${i + 1}.</span><input class="input" style="flex:1;" value="${(s.action||'').replace(/"/g,'&quot;')}" placeholder="Step action"><input class="input" style="flex:1;" value="${(s.expected_result||'').replace(/"/g,'&quot;')}" placeholder="Expected result"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">×</button>`;
+      stepsContainer.appendChild(div);
+    });
+
+    openModal('editTestModal');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function addEditStepRow() {
+  const container = document.getElementById('editTestSteps');
+  const num = container.children.length + 1;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:start;';
+  div.innerHTML = `<span style="min-width:24px;color:var(--text-3);padding-top:8px;">${num}.</span><input class="input" style="flex:1;" placeholder="Step action"><input class="input" style="flex:1;" placeholder="Expected result"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(div);
+}
+
+async function saveTestEdit() {
+  try {
+    const id = document.getElementById('editTestId').value;
+    const steps = [];
+    document.querySelectorAll('#editTestSteps > div').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      if (inputs[0]?.value) steps.push({ action: inputs[0].value, expected_result: inputs[1]?.value || '' });
+    });
+    await api(`/api/tests/cases/${id}`, { method: 'PUT', body: JSON.stringify({
+      title: document.getElementById('editTestTitle').value,
+      description: document.getElementById('editTestDesc').value || null,
+      preconditions: document.getElementById('editTestPreconditions').value || null,
+      priority: parseInt(document.getElementById('editTestPriority').value),
+      test_type: document.getElementById('editTestType').value,
+      is_critical: document.getElementById('editTestCritical').checked,
+      steps
+    }) });
+    closeModal('editTestModal');
+    toast('Test case updated!');
+    loadTests(); loadSuiteTree();
+    showTestDetail(id);
+    if (_currentRunId && document.getElementById('runDetail')?.classList.contains('open')) {
+      showRunDetail(_currentRunId);
+    }
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+let _addToRunTestId = null;
+
+function addTestToRun(testId, testKey) {
+  _addToRunTestId = testId;
+  const t = allTestsCache.find(tc => tc.id === testId);
+  document.getElementById('addToRunTestInfo').innerHTML = `Adding <strong style="color:var(--accent);">${testKey}</strong>: ${t?.title || ''}`;
+  document.getElementById('addToRunNewName').value = `Run — ${testKey} — ${new Date().toLocaleDateString()}`;
+  document.getElementById('addToRunNewFields').style.display = 'block';
+  document.getElementById('addToRunExistingFields').style.display = 'none';
+  document.querySelector('input[name="addToRunMode"][value="new"]').checked = true;
+  openModal('addToRunModal');
+}
+
+async function loadExistingRuns() {
+  try {
+    const runs = await api(`/api/tests/runs?project_id=${projectId}`);
+    const sel = document.getElementById('addToRunExistingSelect');
+    sel.innerHTML = runs.length > 0
+      ? runs.map(r => `<option value="${r.id}">${r.name} (${r.total_tests} tests)</option>`).join('')
+      : '<option value="">No runs exist — create a new one</option>';
+  } catch (e) { console.error(e); }
+}
+
+async function executeAddToRun() {
+  if (!_addToRunTestId) return;
+  const mode = document.querySelector('input[name="addToRunMode"]:checked')?.value || 'new';
+
+  try {
+    const check = await api(`/api/tests/runs/active-check/${_addToRunTestId}`);
+    if (check.has_active) {
+      const runList = check.runs.join(', ');
+      const msg = `⚠️ This test case already exists in an active run:\n\n` +
+        `"${runList}"\n\n` +
+        `The test hasn't been completed yet.\nComplete the existing run first, or click OK to add anyway.`;
+      if (!confirm(msg)) return;
+    }
+
+    if (mode === 'new') {
+      const name = document.getElementById('addToRunNewName').value.trim();
+      if (!name) { toast('Enter a run name', 'error'); return; }
+      const env = document.getElementById('addToRunNewEnv').value;
+      const build = document.getElementById('addToRunNewBuild').value;
+      await api('/api/tests/runs', { method: 'POST', body: JSON.stringify({
+        project_id: projectId, name, environment: env, build_number: build || null, test_case_ids: [_addToRunTestId]
+      }) });
+      toast(`Test Run "${name}" created!`);
+    } else {
+      const runId = document.getElementById('addToRunExistingSelect').value;
+      if (!runId) { toast('Select a run', 'error'); return; }
+      await api(`/api/tests/runs/${runId}/add`, { method: 'POST', body: JSON.stringify({ test_case_ids: [_addToRunTestId] }) });
+      toast('Test added to run!');
+    }
+
+    closeModal('addToRunModal');
+    switchTestTab(document.querySelector('#page-tests .tab-bar button:nth-child(2)'), 'runs');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function cloneTestCase(id) {
+  try {
+    const cloned = await api(`/api/tests/cases/${id}/clone`, { method: 'POST', body: JSON.stringify({}) });
+    toast(`Cloned! New test: ${cloned.test_key}`);
+    loadTests(); loadSuiteTree();
+    showTestDetail(cloned.id);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function exportSingleTestCSV(id) {
+  const t = allTestsCache.find(tc => tc.id === id);
+  if (!t) { toast('Test not found', 'error'); return; }
+  let csv = 'Test Key,Title,Description,Preconditions,Priority,Type,Critical,Steps\n';
+  const stepsText = (t.steps || []).map((s, i) => `${i+1}. ${s.action} -> ${s.expected_result || ''}`).join(' | ');
+  csv += `"${t.test_key}","${(t.title||'').replace(/"/g,'""')}","${(t.description||'').replace(/"/g,'""')}","${(t.preconditions||'').replace(/"/g,'""')}",P${t.priority},${t.test_type},${t.is_critical?'Yes':'No'},"${stepsText.replace(/"/g,'""')}"\n`;
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${t.test_key}.csv`;
+  a.click();
+  toast('Test exported!');
+}
+
+function exportAllTestsCSV() {
+  const tests = allTestsCache;
+  if (!tests.length) { toast('No tests to export', 'error'); return; }
+  let csv = 'Test Key,Title,Suite,Description,Preconditions,Priority,Type,Critical,Steps Count,Steps Detail\n';
+  tests.forEach(t => {
+    const stepsText = (t.steps || []).map((s, i) => `${i+1}. ${s.action} -> ${s.expected_result || ''}`).join(' | ');
+    csv += `"${t.test_key}","${(t.title||'').replace(/"/g,'""')}","${(t.suite_name||'').replace(/"/g,'""')}","${(t.description||'').replace(/"/g,'""')}","${(t.preconditions||'').replace(/"/g,'""')}",P${t.priority},${t.test_type},${t.is_critical?'Yes':'No'},${(t.steps||[]).length},"${stepsText.replace(/"/g,'""')}"\n`;
+  });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `all-tests-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast(`Exported ${tests.length} tests!`);
+}
+
+async function deleteTest(id, key) {
+  if (!confirm(`Delete test case ${key}?`)) return;
+  try {
+    await api(`/api/tests/cases/${id}`, { method: 'DELETE' });
+    toast('Test case deleted');
+    document.getElementById('testDetail').classList.remove('open');
+    loadTests(); loadSuiteTree();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// --- Test Runs ---
+async function loadTestRuns() {
+  if (!projectId) return;
+  try {
+    const runs = await api(`/api/tests/runs?project_id=${projectId}`);
+    document.getElementById('runsBody').innerHTML = runs.length > 0 ? runs.map(r => {
+      const total = r.total_tests || 0;
+      const passed = r.passed || 0;
+      const failed = r.failed || 0;
+      const remaining = total - passed - failed;
+      const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+      const status = remaining === 0 && total > 0 ? 'Completed' : total === 0 ? 'Empty' : 'In Progress';
+      return `<tr style="cursor:pointer;" onclick="showRunDetail('${r.id}')">
+        <td><strong style="color:var(--accent);">${r.name}</strong></td>
+        <td>${r.environment || '—'}</td>
+        <td>${r.build_number || '—'}</td>
+        <td><span class="badge badge-${status==='Completed'?'green':status==='In Progress'?'blue':'gray'}">${status}</span></td>
+        <td>${total}</td>
+        <td style="color:var(--green);">${passed}</td>
+        <td style="color:var(--red);">${failed}</td>
+        <td style="color:var(--text-3);font-size:12px;">${new Date(r.created_at).toLocaleDateString()}</td>
+        <td>${status==='Completed'
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();showRunDetail('${r.id}')" style="background:var(--green);color:#fff;border-color:var(--green);">✅ View Results</button>`
+          : status==='Empty'
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();showRunDetail('${r.id}')" style="opacity:0.6;">— Empty</button>`
+          : `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();showRunDetail('${r.id}')">▶ Execute</button>`
+        }</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-3);">No test runs yet. Create a new run to start executing tests.</td></tr>';
+  } catch (e) { console.error(e); }
+}
+
+let _currentRunResults = [];
+let _currentRunId = null;
+let _stepResults = {};
+
+async function showRunDetail(runId) {
+  try {
+    _currentRunId = runId;
+    const results = await api(`/api/tests/results/${runId}`);
+    _currentRunResults = results;
+    const runs = await api(`/api/tests/runs?project_id=${projectId}`);
+    const run = runs.find(r => String(r.id) === String(runId));
+    const panel = document.getElementById('runDetail');
+    panel.classList.add('open');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const passed = results.filter(r => r.outcome === 'passed').length;
+    const failed = results.filter(r => r.outcome === 'failed').length;
+    const blocked = results.filter(r => r.outcome === 'blocked').length;
+    const skipped = results.filter(r => r.outcome === 'skipped').length;
+    const notRun = results.filter(r => !r.outcome || r.outcome === 'not_run').length;
+    const total = results.length;
+    const pctDone = total > 0 ? Math.round(((total - notRun) / total) * 100) : 0;
+
+    const isComplete = notRun === 0 && total > 0;
+    const allPassed = passed === total && total > 0;
+
+    panel.innerHTML = `
+      <div class="detail-header">
+        <h3 style="font-size:14px;color:var(--text-0);">${run?.name || 'Test Run'}</h3>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn btn-sm" onclick="exportRunToCSV('${runId}')" title="Export results to CSV">📄 CSV</button>
+          <button class="close-btn" onclick="document.getElementById('runDetail').classList.remove('open')">&times;</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        ${isComplete ? `
+          <div style="padding:10px 14px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;
+            background:${allPassed?'rgba(46,160,67,0.12)':'rgba(248,81,73,0.12)'};
+            border:1px solid ${allPassed?'var(--green)':'var(--red)'};">
+            <span style="font-size:22px;">${allPassed?'✅':'⚠️'}</span>
+            <div>
+              <div style="font-weight:700;color:${allPassed?'var(--green)':'var(--red)'};">${allPassed?'All Tests Passed':'Run Completed — Has Failures'}</div>
+              <div style="font-size:12px;color:var(--text-2);">${passed} passed, ${failed} failed${blocked?' ,'+blocked+' blocked':''}${skipped?', '+skipped+' skipped':''}</div>
+            </div>
+          </div>
+        ` : notRun > 0 ? `
+          <div style="padding:8px 14px;border-radius:8px;margin-bottom:12px;background:rgba(31,111,235,0.1);border:1px solid var(--accent);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:18px;">🔄</span>
+            <div>
+              <div style="font-weight:600;color:var(--accent);">In Progress — ${notRun} test${notRun>1?'s':''} remaining</div>
+              <div style="font-size:11px;color:var(--text-3);">Mark each step ✅ or ❌ to complete</div>
+            </div>
+          </div>
+        ` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;background:var(--bg-0);border-radius:8px;height:10px;overflow:hidden;display:flex;">
+            <div style="background:var(--green);width:${total?passed/total*100:0}%;transition:width 0.3s;"></div>
+            <div style="background:var(--red);width:${total?failed/total*100:0}%;transition:width 0.3s;"></div>
+            <div style="background:var(--yellow);width:${total?blocked/total*100:0}%;transition:width 0.3s;"></div>
+            <div style="background:var(--text-3);width:${total?skipped/total*100:0}%;transition:width 0.3s;"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:var(--accent);min-width:40px;">${pctDone}%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:16px;">
+          <div style="text-align:center;padding:6px 4px;background:var(--green-bg);border-radius:var(--radius-sm);"><div style="font-size:16px;font-weight:700;color:var(--green);">${passed}</div><div style="font-size:10px;color:var(--text-3);">Passed</div></div>
+          <div style="text-align:center;padding:6px 4px;background:var(--red-bg);border-radius:var(--radius-sm);"><div style="font-size:16px;font-weight:700;color:var(--red);">${failed}</div><div style="font-size:10px;color:var(--text-3);">Failed</div></div>
+          <div style="text-align:center;padding:6px 4px;background:var(--yellow-bg);border-radius:var(--radius-sm);"><div style="font-size:16px;font-weight:700;color:var(--yellow);">${blocked}</div><div style="font-size:10px;color:var(--text-3);">Blocked</div></div>
+          <div style="text-align:center;padding:6px 4px;background:var(--bg-2);border-radius:var(--radius-sm);"><div style="font-size:16px;font-weight:700;color:var(--text-3);">${skipped}</div><div style="font-size:10px;color:var(--text-3);">Skipped</div></div>
+          <div style="text-align:center;padding:6px 4px;background:var(--bg-2);border-radius:var(--radius-sm);"><div style="font-size:16px;font-weight:700;color:var(--text-2);">${notRun}</div><div style="font-size:10px;color:var(--text-3);">Not Run</div></div>
+        </div>
+        <div class="detail-section">
+          <h4 style="margin-bottom:10px;">Test Execution (${total})</h4>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${results.map((r, idx) => {
+              const borderColor = r.outcome==='passed'?'var(--green)':r.outcome==='failed'?'var(--red)':r.outcome==='blocked'?'var(--yellow)':'var(--bg-3)';
+              const statusIcon = r.outcome==='passed'?'✅':r.outcome==='failed'?'❌':r.outcome==='blocked'?'⚠️':'⬜';
+              const steps = r.steps || [];
+              return `
+              <div class="run-test-card" id="run-result-${r.id}" style="background:var(--bg-0);border-radius:8px;border-left:4px solid ${borderColor};overflow:hidden;">
+                <div style="padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);">
+                  <span style="font-size:12px;color:var(--text-3);min-width:20px;font-weight:700;">${idx+1}.</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;font-weight:600;color:var(--accent);">${r.test_key} ${r.is_critical?'🔴':''} ${r.priority<=1?'<span class="badge badge-red" style="font-size:10px;">P1</span>':r.priority<=2?'<span class="badge badge-yellow" style="font-size:10px;">P2</span>':''}</div>
+                    <div style="font-size:13px;color:var(--text-1);" dir="auto">${r.title}</div>
+                  </div>
+                  <select class="input" style="width:110px;font-size:11px;padding:4px 6px;" onchange="updateTestResult('${r.id}','${runId}',this.value)">
+                    <option value="not_run" ${!r.outcome||r.outcome==='not_run'?'selected':''}>⬜ Not Run</option>
+                    <option value="passed" ${r.outcome==='passed'?'selected':''}>✅ Passed</option>
+                    <option value="failed" ${r.outcome==='failed'?'selected':''}>❌ Failed</option>
+                    <option value="blocked" ${r.outcome==='blocked'?'selected':''}>⚠️ Blocked</option>
+                    <option value="skipped" ${r.outcome==='skipped'?'selected':''}>⏭️ Skipped</option>
+                  </select>
+                </div>
+                <div style="padding:8px 12px 12px 12px;">
+                  ${r.description ? `<p style="font-size:12px;color:var(--text-2);margin:4px 0 8px 0;white-space:pre-wrap;" dir="auto">${r.description}</p>` : ''}
+                  ${r.preconditions ? `<div style="font-size:11px;color:var(--purple);background:var(--bg-1);padding:6px 8px;border-radius:4px;margin:0 0 8px 0;" dir="auto"><strong>Preconditions:</strong> ${r.preconditions}</div>` : ''}
+                  ${steps.length > 0 ? `
+                    <div style="background:var(--bg-1);border-radius:6px;padding:8px;margin-bottom:8px;">
+                      <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px;text-transform:uppercase;">Steps (${steps.length}) — click ✅ or ❌ per step</div>
+                      ${steps.map((s, si) => {
+                        const stepKey = r.id + '_' + si;
+                        const stepStatus = (_stepResults[stepKey]) || 'pending';
+                        const stepBg = stepStatus==='passed'?'rgba(46,160,67,0.08)':stepStatus==='failed'?'rgba(248,81,73,0.08)':'transparent';
+                        const numBg = stepStatus==='passed'?'var(--green)':stepStatus==='failed'?'var(--red)':'var(--accent)';
+                        return `
+                        <div id="step-row-${stepKey}" style="display:flex;gap:6px;padding:6px 4px;${si < steps.length-1?'border-bottom:1px solid var(--border);':''}align-items:start;background:${stepBg};border-radius:4px;margin-bottom:2px;">
+                          <span style="min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;background:${numBg};border-radius:50%;flex-shrink:0;">${s.step_number || si+1}</span>
+                          <div style="flex:1;">
+                            <div style="font-size:12px;color:var(--text-0);font-weight:500;" dir="auto">${s.action}</div>
+                            ${s.expected_result ? `<div style="font-size:11px;color:var(--green);margin-top:3px;" dir="auto">✓ Expected: ${s.expected_result}</div>` : ''}
+                            ${stepStatus==='failed' ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();fileBugFromStep('${r.id}','${r.test_case_id}','${r.test_key}',\`${(r.title||'').replace(/`/g,"'")}\`,${si},\`${(s.action||'').replace(/`/g,"'")}\`,\`${(s.expected_result||'').replace(/`/g,"'")}\`)" style="font-size:10px;margin-top:5px;padding:3px 10px;">🐛 Open Bug for this step</button>` : ''}
+                          </div>
+                          <div style="display:flex;gap:3px;flex-shrink:0;">
+                            <button class="btn btn-sm" onclick="event.stopPropagation();markStep('${r.id}','${runId}',${si},'passed')" title="Step Passed" style="padding:2px 6px;font-size:13px;${stepStatus==='passed'?'background:var(--green);color:#fff;border-color:var(--green);':''}">✅</button>
+                            <button class="btn btn-sm" onclick="event.stopPropagation();markStep('${r.id}','${runId}',${si},'failed')" title="Step Failed" style="padding:2px 6px;font-size:13px;${stepStatus==='failed'?'background:var(--red);color:#fff;border-color:var(--red);':''}">❌</button>
+                          </div>
+                        </div>`;
+                      }).join('')}
+                    </div>
+                  ` : '<p style="font-size:12px;color:var(--text-3);margin:4px 0 8px 0;">No steps defined</p>'}
+                  <textarea class="input" id="run-comment-${r.id}" rows="2" placeholder="Add notes / comments..." style="font-size:12px;width:100%;box-sizing:border-box;margin-bottom:6px;" dir="auto">${r.comment || ''}</textarea>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn btn-sm" onclick="saveRunComment('${r.id}','${runId}')" style="font-size:11px;">💾 Save Note</button>
+                    <button class="btn btn-sm btn-primary" onclick="editTestFromRun('${r.test_case_id}')" style="font-size:11px;">✏️ Edit Test</button>
+                    ${r.outcome === 'failed' ? `<button class="btn btn-sm btn-danger" onclick="fileBugFromRun('${r.test_case_id}','${r.test_key}',\`${(r.title||'').replace(/`/g,"'")}\`)" style="font-size:11px;">🐛 File Bug</button>` : ''}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+            ${results.length === 0 ? '<p style="color:var(--text-3);">No test cases in this run. Go to Test Cases, click ▶ on any test to add it here.</p>' : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+
+async function updateTestResult(resultId, runId, outcome) {
+  try {
+    await api(`/api/tests/results/${resultId}`, { method: 'PUT', body: JSON.stringify({ outcome }) });
+    const statusLabels = { passed: '✅ Passed', failed: '❌ Failed', blocked: '⚠️ Blocked', skipped: '⏭️ Skipped', not_run: '⬜ Not Run' };
+    toast(statusLabels[outcome] || outcome);
+    showRunDetail(runId);
+    loadTestRuns();
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveRunComment(resultId, runId) {
+  try {
+    const comment = document.getElementById('run-comment-' + resultId)?.value || '';
+    const result = _currentRunResults.find(r => r.id === resultId);
+    await api(`/api/tests/results/${resultId}`, { method: 'PUT', body: JSON.stringify({ outcome: result?.outcome || 'not_run', comment }) });
+    toast('Note saved!');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function editTestFromRun(testCaseId) {
+  editTestInModal(testCaseId);
+}
+
+function markStep(resultId, runId, stepIdx, status) {
+  const key = resultId + '_' + stepIdx;
+  _stepResults[key] = status;
+
+  if (status === 'failed') {
+    updateTestResult(resultId, runId, 'failed');
+    return;
+  }
+
+  const result = _currentRunResults.find(r => r.id === resultId);
+  if (result) {
+    const totalSteps = (result.steps || []).length;
+    let allPassed = true;
+    let anyFailed = false;
+    for (let i = 0; i < totalSteps; i++) {
+      const sk = resultId + '_' + i;
+      if (_stepResults[sk] === 'failed') { anyFailed = true; break; }
+      if (_stepResults[sk] !== 'passed') allPassed = false;
+    }
+    if (anyFailed) {
+      updateTestResult(resultId, runId, 'failed');
+    } else if (allPassed && totalSteps > 0) {
+      updateTestResult(resultId, runId, 'passed');
+    } else {
+      showRunDetail(runId);
+    }
+  } else {
+    showRunDetail(runId);
+  }
+}
+
+function fileBugFromStep(resultId, testCaseId, testKey, testTitle, stepIdx, stepAction, stepExpected) {
+  const stepNum = stepIdx + 1;
+  openModal('newBugModal');
+  document.getElementById('bugTitle').value = `[${testKey}] Step ${stepNum} Failed: ${stepAction.substring(0,80)}`;
+  document.getElementById('bugSteps').value =
+    `Test Case: ${testKey} — ${testTitle}\n` +
+    `Failed at Step ${stepNum}:\n` +
+    `  Action: ${stepAction}\n` +
+    `  Expected: ${stepExpected}\n\n` +
+    `Actual Result:\n(describe what happened)\n\n` +
+    `Environment:\n(browser, OS, version)`;
+  document.getElementById('bugPriority').value = 'high';
+  document.getElementById('bugSeverity').value = 'major';
+  document.getElementById('bugActual').value = '';
+  document.getElementById('bugExpected').value = stepExpected || '';
+}
+
+function fileBugFromRun(testCaseId, testKey, testTitle) {
+  openModal('newBugModal');
+  document.getElementById('bugTitle').value = `[${testKey}] Failed: ${testTitle}`;
+  document.getElementById('bugSteps').value =
+    `Test Case: ${testKey}\n` +
+    `Title: ${testTitle}\n\n` +
+    `Steps to reproduce:\n1. `;
+  document.getElementById('bugPriority').value = 'high';
+  document.getElementById('bugSeverity').value = 'major';
+  document.getElementById('bugActual').value = '';
+  document.getElementById('bugExpected').value = '';
+}
+
+function exportRunToCSV(runId) {
+  const results = _currentRunResults;
+  if (!results.length) { toast('No results to export', 'error'); return; }
+  let csv = 'Test Key,Title,Priority,Status,Executed By,Comment,Steps Count\n';
+  results.forEach(r => {
+    csv += `"${r.test_key}","${(r.title||'').replace(/"/g,'""')}",P${r.priority},${r.outcome||'not_run'},"${r.executed_by_name||''}","${(r.comment||'').replace(/"/g,'""')}",${(r.steps||[]).length}\n`;
+  });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `test-run-results-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV exported!');
 }
 
 async function createTestCase() {
@@ -728,7 +1700,12 @@ async function loadBugs() {
         <td>${b.assigned_to_name || '<span style="color:var(--text-3)">—</span>'}</td>
         <td style="color:var(--text-3);font-size:12px;">${new Date(b.created_at).toLocaleDateString()}</td>
       </tr>
-    `).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3);">No bugs found</td></tr>';
+    `).join('') : `<tr><td colspan="8" style="text-align:center;padding:60px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">🐛</div>
+      <div style="color:var(--text-2);font-size:15px;font-weight:600;margin-bottom:8px;">No bugs reported yet</div>
+      <div style="color:var(--text-3);font-size:13px;max-width:400px;margin:0 auto;">Bugs can be reported manually or detected automatically through integrations.</div>
+      <button class="btn btn-primary" onclick="openModal('newBugModal')" style="margin-top:12px;">+ Report Bug</button>
+    </td></tr>`;
   } catch (e) { console.error(e); }
 }
 
@@ -738,7 +1715,13 @@ async function showBugDetail(id) {
     const panel = document.getElementById('bugDetail');
     panel.classList.add('open');
     panel.innerHTML = `
-      <div class="detail-header"><h3 style="font-size:14px;color:var(--text-0);">${b.bug_key}</h3><button class="close-btn" onclick="document.getElementById('bugDetail').classList.remove('open')">&times;</button></div>
+      <div class="detail-header">
+        <h3 style="font-size:14px;color:var(--text-0);">${b.bug_key}</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="editBugInline('${b.id}')">✏️ Edit</button>
+          <button class="close-btn" onclick="document.getElementById('bugDetail').classList.remove('open')">&times;</button>
+        </div>
+      </div>
       <div class="detail-body">
         <h4 style="font-size:15px;color:var(--text-0);margin-bottom:8px;">${b.title}</h4>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -791,6 +1774,53 @@ async function addBugComment(bugId) {
 
 async function analyzeRootCause(bugId) {
   try { toast('Analyzing root cause...', 'warning'); const result = await api('/api/ai/root-cause', { method: 'POST', body: JSON.stringify({ bug_id: bugId }) }); toast('Root cause analysis complete!'); showBugDetail(bugId); } catch (e) { toast(e.message, 'error'); }
+}
+
+async function editBugInline(bugId) {
+  try {
+    const b = await api(`/api/bugs/${bugId}`);
+    const users = await api('/api/auth/users');
+    const panel = document.getElementById('bugDetail');
+    panel.innerHTML = `
+      <div class="detail-header">
+        <h3 style="font-size:14px;color:var(--text-0);">✏️ Edit ${b.bug_key}</h3>
+        <button class="close-btn" onclick="showBugDetail('${bugId}')">&times;</button>
+      </div>
+      <div class="detail-body">
+        <div class="input-group"><label>Title</label><input class="input" id="editBugTitle" value="${(b.title||'').replace(/"/g,'&quot;')}"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="input-group"><label>Priority</label><select class="input" id="editBugPriority"><option value="critical" ${b.priority==='critical'?'selected':''}>Critical</option><option value="high" ${b.priority==='high'?'selected':''}>High</option><option value="medium" ${b.priority==='medium'?'selected':''}>Medium</option><option value="low" ${b.priority==='low'?'selected':''}>Low</option></select></div>
+          <div class="input-group"><label>Severity</label><select class="input" id="editBugSeverity"><option value="blocker" ${b.severity==='blocker'?'selected':''}>Blocker</option><option value="critical" ${b.severity==='critical'?'selected':''}>Critical</option><option value="major" ${b.severity==='major'?'selected':''}>Major</option><option value="minor" ${b.severity==='minor'?'selected':''}>Minor</option><option value="trivial" ${b.severity==='trivial'?'selected':''}>Trivial</option></select></div>
+        </div>
+        <div class="input-group"><label>Status</label><select class="input" id="editBugStatus"><option value="open" ${b.status==='open'?'selected':''}>Open</option><option value="assigned" ${b.status==='assigned'?'selected':''}>Assigned</option><option value="in_progress" ${b.status==='in_progress'?'selected':''}>In Progress</option><option value="fixed" ${b.status==='fixed'?'selected':''}>Fixed</option><option value="retest" ${b.status==='retest'?'selected':''}>Retest</option><option value="verified" ${b.status==='verified'?'selected':''}>Verified</option><option value="closed" ${b.status==='closed'?'selected':''}>Closed</option><option value="rejected" ${b.status==='rejected'?'selected':''}>Rejected</option></select></div>
+        <div class="input-group"><label>Assigned To</label><select class="input" id="editBugAssign"><option value="">Unassigned</option>${users.map(u => `<option value="${u.id}" ${b.assigned_to===u.id?'selected':''}>${u.full_name}</option>`).join('')}</select></div>
+        <div class="input-group"><label>Steps to Reproduce</label><textarea class="input" id="editBugSteps" rows="4">${b.steps_to_reproduce||''}</textarea></div>
+        <div class="input-group"><label>Environment</label><input class="input" id="editBugEnv" value="${b.environment||''}"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-primary" onclick="saveBugEdit('${bugId}')" style="flex:1;">💾 Save</button>
+          <button class="btn" onclick="showBugDetail('${bugId}')">Cancel</button>
+        </div>
+      </div>
+    `;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveBugEdit(bugId) {
+  try {
+    await api(`/api/bugs/${bugId}`, { method: 'PUT', body: JSON.stringify({
+      title: document.getElementById('editBugTitle').value,
+      priority: document.getElementById('editBugPriority').value,
+      severity: document.getElementById('editBugSeverity').value,
+      status: document.getElementById('editBugStatus').value,
+      assigned_to: document.getElementById('editBugAssign').value || null,
+      steps_to_reproduce: document.getElementById('editBugSteps').value,
+      environment: document.getElementById('editBugEnv').value
+    }) });
+    toast('Bug updated!');
+    showBugDetail(bugId);
+    loadBugs();
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function createBug() {
@@ -855,12 +1885,71 @@ async function loadAIStatus() {
   try {
     const status = await api('/api/ai/status');
     const connected = status.connected;
-    document.getElementById('aiStatusBadge').innerHTML = connected
+
+    let ctxBadge = '';
+    const knowledgeBanner = document.getElementById('aiProjectKnowledgeBanner');
+    try {
+      const ctx = await api(`/api/project/context?project_id=${projectId}`);
+      if (ctx.has_context) {
+        ctxBadge = `<span class="badge badge-green" style="margin-left:6px;">🧠 Knowledge Active</span>`;
+        const docParts = [];
+        if (ctx.document_count > 0) docParts.push(`${ctx.document_count} document${ctx.document_count > 1 ? 's' : ''}`);
+        if (ctx.git_connected) docParts.push('Git repo');
+        knowledgeBanner.style.display = '';
+        knowledgeBanner.innerHTML = `
+          <div style="background:linear-gradient(135deg, rgba(63,185,80,0.12), rgba(31,111,235,0.08));border:1px solid var(--green);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:26px;">🧠</span>
+            <div style="flex:1;">
+              <strong style="color:var(--green);font-size:13px;">Project Knowledge Base Active</strong>
+              <div style="font-size:12px;color:var(--text-2);margin-top:2px;">The AI is using your system documentation (${ctx.total_words.toLocaleString()} words from ${docParts.join(' + ')}) as context when generating test cases.</div>
+            </div>
+            <button class="btn btn-sm" onclick="switchPage('project')" style="white-space:nowrap;font-size:11px;">Manage Docs</button>
+          </div>`;
+      } else {
+        knowledgeBanner.style.display = '';
+        knowledgeBanner.innerHTML = `
+          <div style="background:rgba(210,153,34,0.08);border:1px solid var(--yellow);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:26px;">💡</span>
+            <div style="flex:1;">
+              <strong style="color:var(--yellow);font-size:13px;">No Project Knowledge Configured</strong>
+              <div style="font-size:12px;color:var(--text-2);margin-top:2px;">Upload a document that describes your system in the <strong>Project</strong> tab. The AI will use it as foundation knowledge for all test generation.</div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="switchPage('project')" style="white-space:nowrap;font-size:11px;">Setup Now</button>
+          </div>`;
+      }
+    } catch { if (knowledgeBanner) knowledgeBanner.style.display = 'none'; }
+
+    document.getElementById('aiStatusBadge').innerHTML = (connected
       ? `<span class="badge badge-green">🟢 ${status.provider === 'gemini' ? 'Gemini' : 'OpenAI'} (${status.model}) — ${status.language === 'he' ? 'Hebrew' : 'English'}</span>`
-      : `<span class="badge badge-yellow">⚡ Heuristic Mode — Set GEMINI_API_KEY for full AI</span>`;
+      : `<span class="badge badge-yellow">⚡ Heuristic Mode — Set GEMINI_API_KEY for full AI</span>`) + ctxBadge;
     document.getElementById('aiConnectionCard').innerHTML = connected
-      ? `<div class="card" style="border-color:var(--green);background:var(--green-bg);"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">✅</span><div><h3 style="color:var(--green);margin:0;">${status.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} Connected</h3><p style="color:var(--text-2);font-size:13px;margin-top:4px;">Model: ${status.model} | Language: ${status.language === 'he' ? 'Hebrew' : 'English'} | Test generation, duplicate detection, root cause analysis, risk prediction — all AI-powered</p></div></div></div>`
-      : `<div class="card" style="border-color:var(--yellow);"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">💡</span><div><h3 style="color:var(--yellow);margin:0;">Basic Mode (No AI)</h3><p style="color:var(--text-2);font-size:13px;margin-top:4px;">System is running with built-in heuristic algorithms. To connect Gemini AI (free!):<br><code style="background:var(--bg-0);padding:2px 6px;border-radius:3px;">GEMINI_API_KEY=your_key node server.js</code></p><p style="color:var(--text-3);font-size:12px;margin-top:8px;">Get a free API key from <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → Get API Key</p></div></div></div>`;
+      ? `<div class="card" style="border-color:var(--green);background:var(--green-bg);"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">✅</span><div><h3 style="color:var(--green);margin:0;">${status.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'} Connected</h3><p style="color:var(--text-2);font-size:13px;margin-top:4px;">Model: ${status.model} | Language: ${status.language === 'he' ? 'Hebrew' : 'English'}<br>AI-powered test generation, duplicate detection, root cause analysis, and risk prediction are all active.</p></div></div></div>`
+      : `<div class="card" style="border-color:var(--yellow);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:28px;">💡</span>
+            <div style="flex:1;">
+              <h3 style="color:var(--yellow);margin:0;font-size:15px;">Basic Mode — No AI Connected</h3>
+              <p style="color:var(--text-2);font-size:13px;margin-top:4px;">The system is generating tests using built-in templates (basic quality). For much better, AI-powered tests, connect Google Gemini (free).</p>
+            </div>
+          </div>
+          <details style="margin-top:12px;cursor:pointer;">
+            <summary style="color:var(--accent);font-size:13px;font-weight:600;">How to connect Gemini AI (3 easy steps)</summary>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--bg-0);border-radius:var(--radius-sm);">
+                <span style="background:var(--accent-muted);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">1</span>
+                <div><strong style="color:var(--text-0);">Get a free API key</strong><br><span style="font-size:12px;color:var(--text-2);">Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>, sign in with your Google account, and click "Get API Key"</span></div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--bg-0);border-radius:var(--radius-sm);">
+                <span style="background:var(--accent-muted);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">2</span>
+                <div><strong style="color:var(--text-0);">Copy the key</strong><br><span style="font-size:12px;color:var(--text-2);">It looks something like: AIzaSyB...</span></div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--bg-0);border-radius:var(--radius-sm);">
+                <span style="background:var(--accent-muted);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">3</span>
+                <div><strong style="color:var(--text-0);">Restart the server with the key</strong><br><span style="font-size:12px;color:var(--text-2);">Run this command in your terminal:</span><br><code style="display:block;margin-top:4px;background:var(--bg-2);padding:8px 12px;border-radius:4px;font-size:13px;color:var(--green);user-select:all;">GEMINI_API_KEY=paste_your_key_here node server.js</code></div>
+              </div>
+            </div>
+          </details>
+        </div>`;
   } catch (e) { console.error('AI status error:', e); }
 }
 
@@ -873,48 +1962,162 @@ function switchAITab(btn, tab) {
 async function generateTests() {
   const btn = document.getElementById('aiGenerateBtn');
   const preview = document.getElementById('aiPreviewMode').checked;
-  btn.disabled = true; btn.textContent = '⏳ Generating...';
+  btn.disabled = true; btn.textContent = '⏳ Analyzing specification...';
   try {
     const result = await api('/api/ai/generate-tests', { method: 'POST', body: JSON.stringify({ project_id: projectId, source_type: document.getElementById('aiSourceType').value, source_content: document.getElementById('aiSourceContent').value, preview }) });
 
     const pBadge = p => `<span class="badge badge-${p <= 1 ? 'red' : p <= 2 ? 'yellow' : p <= 3 ? 'gray' : 'gray'}">${{1:'P1 Critical',2:'P2 High',3:'P3 Medium',4:'P4 Low'}[p]||'P'+p}</span>`;
+    const catBadge = c => {
+      const map = { functional:'🟢 Functional', negative:'🔴 Negative', edge_case:'🟠 Edge Case', ux:'🎨 UX', data:'💾 Data', security:'🔒 Security' };
+      const colors = { functional:'var(--green)', negative:'var(--red)', edge_case:'var(--orange)', ux:'var(--purple)', data:'var(--cyan)', security:'var(--yellow)' };
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:3px;background:${colors[c]||'var(--bg-3)'}22;color:${colors[c]||'var(--text-2)'};">${map[c]||c}</span>`;
+    };
 
+    window._lastAITests = result;
+
+    let html = '';
+
+    // Summary Card
+    const s = result.summary || {};
+    html += `<div class="card" style="margin-bottom:16px;border-color:var(--accent);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <h3 style="font-size:16px;">🏗️ QA Architect Report — ${result.totalGenerated} Test Cases</h3>
+        <div style="display:flex;gap:8px;">
+        ${result.preview ? '<span class="badge badge-yellow">Preview — not saved</span>' : '<span class="badge badge-green">Saved</span>'}
+        <span class="badge badge-blue">${result.model}</span>
+        <span class="badge" style="background:var(--green-bg);color:var(--green);">Confidence: ${Math.round(result.confidence * 100)}%</span></div>
+      </div>
+      <div style="background:var(--bg-0);padding:14px;border-radius:var(--radius);margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:16px;">📦</span>
+          <strong style="color:var(--text-0);font-size:14px;">What do you want to do with these tests?</strong>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="openImportModal()" style="padding:10px 20px;font-size:14px;">📥 Import Selected to Test Suite</button>
+          <button class="btn btn-success" onclick="openImportModal('run')" style="padding:10px 20px;font-size:14px;">▶ Import & Start Test Run</button>
+          <button class="btn" onclick="exportAITestsCSV()" style="padding:10px 16px;font-size:13px;">📄 Export to CSV File</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
+          <button id="btnSelectAll" class="btn" onclick="toggleAllAITests(true)" style="border:2px solid var(--accent);color:var(--accent);font-size:14px;padding:10px 20px;font-weight:600;cursor:pointer;transition:all 0.2s;">☑️ Select All</button>
+          <button id="btnDeselectAll" class="btn" onclick="toggleAllAITests(false)" style="border:2px solid var(--red);color:var(--red);font-size:14px;padding:10px 20px;font-weight:600;cursor:pointer;transition:all 0.2s;">☐ Deselect All</button>
+          <span id="aiSelectedCount" style="color:var(--text-0);font-size:14px;font-weight:600;margin-left:auto;"></span>
+        </div>
+      </div>
+      ${s.byCategory ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+        ${Object.entries(s.byCategory).filter(([,v])=>v>0).map(([k,v]) => {
+          const labels = { functional:'Functional', negative:'Negative', edge_case:'Edge Cases', ux:'UX', data:'Data', security:'Security' };
+          const icons = { functional:'🟢', negative:'🔴', edge_case:'🟠', ux:'🎨', data:'💾', security:'🔒' };
+          return `<div style="background:var(--bg-0);padding:10px;border-radius:var(--radius-sm);text-align:center;"><div style="font-size:20px;">${icons[k]||'📋'}</div><div style="font-size:20px;font-weight:700;color:var(--text-0);">${v}</div><div style="font-size:11px;color:var(--text-3);">${labels[k]||k}</div></div>`;
+        }).join('')}
+      </div>` : ''}
+      ${(() => {
+        const roleCount = { qa_lead: 0, senior_tester: 0, tester: 0 };
+        result.tests.forEach(t => { roleCount[t.assigned_role || 'tester']++; });
+        return `<div style="margin-top:12px;padding:12px;background:var(--bg-0);border-radius:var(--radius-sm);">
+          <div style="font-size:12px;color:var(--text-3);text-transform:uppercase;font-weight:600;margin-bottom:8px;">Assigned By Role</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            ${roleCount.qa_lead ? `<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:var(--red-bg);color:var(--red);font-weight:600;">👔 QA Lead</span><span style="font-size:18px;font-weight:700;color:var(--text-0);">${roleCount.qa_lead}</span></div>` : ''}
+            ${roleCount.senior_tester ? `<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:var(--orange-bg);color:var(--orange);font-weight:600;">⭐ Senior Tester</span><span style="font-size:18px;font-weight:700;color:var(--text-0);">${roleCount.senior_tester}</span></div>` : ''}
+            ${roleCount.tester ? `<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:rgba(88,166,255,0.15);color:var(--accent);font-weight:600;">🧪 Tester</span><span style="font-size:18px;font-weight:700;color:var(--text-0);">${roleCount.tester}</span></div>` : ''}
+          </div>
+        </div>`;
+      })()}
+    </div>`;
+
+    // Spec Analysis
+    if (result.specAnalysis) {
+      const sa = result.specAnalysis;
+      html += `<div class="card" style="margin-bottom:12px;"><h3 style="color:var(--purple);">📊 Stage 1 — Spec Analysis</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          ${sa.functionalReqs?.length ? `<div><strong style="color:var(--text-2);font-size:12px;">FUNCTIONAL REQUIREMENTS (${sa.functionalReqs.length})</strong><ul style="margin-top:6px;padding-left:16px;font-size:12px;color:var(--text-1);">${sa.functionalReqs.slice(0,8).map(r=>`<li style="margin:3px 0;" dir="auto">${r.substring(0,80)}${r.length>80?'...':''}</li>`).join('')}${sa.functionalReqs.length>8?`<li style="color:var(--text-3);">+${sa.functionalReqs.length-8} more...</li>`:''}</ul></div>` : ''}
+          ${sa.integrations?.length ? `<div><strong style="color:var(--text-2);font-size:12px;">INTEGRATIONS (${sa.integrations.length})</strong><ul style="margin-top:6px;padding-left:16px;font-size:12px;color:var(--cyan);">${sa.integrations.slice(0,6).map(r=>`<li style="margin:3px 0;" dir="auto">${r.substring(0,80)}</li>`).join('')}</ul></div>` : ''}
+          ${sa.riskPoints?.length ? `<div><strong style="color:var(--red);font-size:12px;">⚠️ RISK POINTS (${sa.riskPoints.length})</strong><ul style="margin-top:6px;padding-left:16px;font-size:12px;color:var(--red);">${sa.riskPoints.map(r=>`<li style="margin:3px 0;" dir="auto">${r.substring(0,100)}</li>`).join('')}</ul></div>` : ''}
+          ${sa.userFlows?.length ? `<div><strong style="color:var(--text-2);font-size:12px;">USER FLOWS (${sa.userFlows.length})</strong><ul style="margin-top:6px;padding-left:16px;font-size:12px;color:var(--text-1);">${sa.userFlows.slice(0,6).map(r=>`<li style="margin:3px 0;" dir="auto">${r.substring(0,80)}</li>`).join('')}</ul></div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    // Missing Requirements (Stage 9)
+    if (result.missingRequirements?.length > 0) {
+      html += `<div class="card" style="margin-bottom:12px;border-color:var(--yellow);"><h3 style="color:var(--yellow);">⚠️ Stage 9 — Missing Requirements (${result.missingRequirements.length})</h3>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+          ${result.missingRequirements.map(m => `<div style="background:var(--yellow-bg);padding:10px;border-radius:var(--radius-sm);border-left:3px solid var(--yellow);" dir="auto">
+            <strong style="color:var(--text-0);">${m.requirement}</strong>
+            <div style="font-size:12px;color:var(--text-2);margin-top:4px;">Impact: ${m.impact}</div>
+            <div style="font-size:12px;color:var(--green);margin-top:2px;">Recommendation: ${m.recommendation}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    // Traceability Matrix (Stage 10)
+    if (result.traceabilityMatrix?.length > 0) {
+      html += `<div class="card" style="margin-bottom:12px;"><h3 style="color:var(--accent);">📋 Stage 10 — Traceability Matrix</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${result.traceabilityMatrix.map(m =>
+          `<span style="background:var(--bg-2);padding:6px 12px;border-radius:4px;font-size:12px;" dir="auto"><strong>${m.requirement}</strong> → ${m.testCases.length} tests</span>`
+        ).join('')}</div>
+      </div>`;
+    }
+
+    // Group tests by section/module
     const sections = {};
     result.tests.forEach(t => {
-      const sec = t.section || 'General';
+      const sec = t.section || t.module || 'General';
       if (!sections[sec]) sections[sec] = [];
       sections[sec].push(t);
     });
 
-    let html = `<div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <h3>Generated ${result.totalGenerated} Test Cases (confidence: ${Math.round(result.confidence * 100)}%) — ${result.model}</h3>
-        ${result.preview ? '<span class="badge badge-yellow">Preview — not saved</span>' : '<span class="badge badge-green">Saved</span>'}
-      </div>
-      ${result.traceabilityMatrix && result.traceabilityMatrix.length > 0 ? `<div style="margin-top:12px;"><strong>Traceability Matrix:</strong><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${result.traceabilityMatrix.map(m => `<span style="background:var(--bg-2);padding:4px 10px;border-radius:4px;font-size:12px;">${m.requirement} → ${m.testCases.length} tests</span>`).join('')}</div></div>` : ''}
-    </div>`;
-
     for (const [sec, tests] of Object.entries(sections)) {
+      const funcCount = tests.filter(t=>t.category==='functional').length;
+      const negCount = tests.filter(t=>t.category==='negative').length;
+      const edgeCount = tests.filter(t=>t.category==='edge_case').length;
+      const otherCount = tests.length - funcCount - negCount - edgeCount;
+
       html += `<div class="card" style="margin-bottom:12px;">
-        <h3 style="margin-bottom:12px;color:var(--accent);">📂 ${sec}</h3>
-        <div style="display:flex;flex-direction:column;gap:12px;">`;
-      for (const t of tests) {
-        const isNeg = t.title.includes('שלילית') || t.title.includes('Negative');
-        html += `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--bg-0);${isNeg ? 'border-left:3px solid var(--red);' : 'border-left:3px solid var(--accent);'}" dir="auto">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <span style="font-weight:600;color:var(--text-0);font-size:12px;background:var(--bg-2);padding:2px 8px;border-radius:3px;">${t.test_key}</span>
-            ${pBadge(t.priority)}
-            <span style="font-size:12px;color:var(--text-3);">${t.type}</span>
-            ${isNeg ? '<span style="font-size:11px;background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;">Negative</span>' : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="color:var(--accent);">📂 ${sec}</h3>
+          <div style="display:flex;gap:6px;font-size:11px;">
+            ${funcCount?`<span style="color:var(--green);">${funcCount} Functional</span>`:''}
+            ${negCount?`<span style="color:var(--red);">${negCount} Negative</span>`:''}
+            ${edgeCount?`<span style="color:var(--orange);">${edgeCount} Edge</span>`:''}
+            ${otherCount?`<span style="color:var(--text-3);">${otherCount} Other</span>`:''}
           </div>
-          <div style="font-weight:600;color:var(--text-0);margin-bottom:6px;">${t.title}</div>
-          ${t.description ? `<div style="color:var(--text-2);font-size:13px;margin-bottom:8px;">${t.description}</div>` : ''}
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            ${(t.steps||[]).map((s,i) => `<div style="display:flex;gap:8px;font-size:13px;padding:4px 0;">
-              <span style="color:var(--accent);font-weight:600;min-width:20px;">${i+1}.</span>
-              <div><span style="color:var(--text-1);">${s.action}</span><br><span style="color:var(--green);font-size:12px;">✓ ${s.expected_result}</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">`;
+
+      for (const t of tests) {
+        const borderColor = t.category === 'negative' ? 'var(--red)' : t.category === 'edge_case' ? 'var(--orange)' : t.category === 'security' ? 'var(--yellow)' : t.category === 'ux' ? 'var(--purple)' : t.category === 'data' ? 'var(--cyan)' : 'var(--accent)';
+
+        const roleBadge = (role) => {
+          const map = { qa_lead: { label: '👔 QA Lead', bg: 'var(--red-bg)', color: 'var(--red)', icon: '👔' }, senior_tester: { label: '⭐ Senior Tester', bg: 'var(--orange-bg)', color: 'var(--orange)', icon: '⭐' }, tester: { label: '🧪 Tester', bg: 'rgba(88,166,255,0.15)', color: 'var(--accent)', icon: '🧪' } };
+          const r = map[role] || map.tester;
+          return `<span style="font-size:12px;padding:3px 10px;border-radius:12px;background:${r.bg};color:${r.color};font-weight:600;display:inline-flex;align-items:center;gap:4px;">${r.label}</span>`;
+        };
+
+        html += `<div class="ai-test-card" data-testkey="${t.test_key}" style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;background:var(--bg-0);border-left:3px solid ${borderColor};" dir="auto">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <div class="ai-test-check" data-key="${t.test_key}" data-checked="true" onclick="toggleSingleAITest(this)">✓</div>
+            ${roleBadge(t.assigned_role)}
+            <span style="font-weight:700;color:var(--text-0);font-size:12px;background:var(--bg-2);padding:2px 8px;border-radius:3px;font-family:monospace;">${t.test_key}</span>
+            ${pBadge(t.priority)}
+            ${t.category ? catBadge(t.category) : ''}
+            ${t.severity ? `<span style="font-size:11px;color:var(--text-3);">${t.severity}</span>` : ''}
+            <span style="font-size:11px;color:var(--text-3);">manual</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span class="ai-test-title" data-key="${t.test_key}" style="font-weight:600;color:var(--text-0);font-size:14px;flex:1;cursor:text;padding:2px 4px;border-radius:3px;border:1px solid transparent;" contenteditable="false" onclick="this.contentEditable='true';this.style.borderColor='var(--accent)';this.style.background='var(--bg-1)'" onblur="this.contentEditable='false';this.style.borderColor='transparent';this.style.background='';updateAITestTitle('${t.test_key}',this.textContent)">${t.title}</span>
+            <button class="btn btn-sm btn-icon" onclick="const el=this.previousElementSibling;el.contentEditable='true';el.style.borderColor='var(--accent)';el.style.background='var(--bg-1)';el.focus();" title="Edit title" style="opacity:0.5;font-size:10px;padding:2px 4px;">✏️</button>
+          </div>
+          ${t.description ? `<div style="color:var(--text-2);font-size:13px;margin-bottom:6px;">${t.description}</div>` : ''}
+          ${t.preconditions ? `<div style="font-size:12px;color:var(--purple);margin-bottom:8px;"><strong>Preconditions:</strong> ${t.preconditions}</div>` : ''}
+          <div style="background:var(--bg-1);border-radius:var(--radius-sm);padding:10px;margin-bottom:6px;">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Test Steps</div>
+            ${(t.steps||[]).map((st,i) => `<div style="display:flex;gap:10px;font-size:13px;padding:6px 0;${i>0?'border-top:1px solid var(--border);':''}">
+              <span style="color:var(--accent);font-weight:700;min-width:24px;text-align:center;">${st.step||i+1}</span>
+              <div style="flex:1;"><div style="color:var(--text-1);">${st.action}</div><div style="color:var(--green);font-size:12px;margin-top:2px;">✓ ${st.expected_result}</div></div>
             </div>`).join('')}
           </div>
+          ${t.test_data ? `<div style="font-size:12px;color:var(--text-3);"><strong>Test Data:</strong> ${t.test_data}</div>` : ''}
         </div>`;
       }
       html += `</div></div>`;
@@ -922,7 +2125,8 @@ async function generateTests() {
 
     document.getElementById('aiGeneratedResults').innerHTML = html;
     document.getElementById('aiGeneratedResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    toast(`Generated ${result.totalGenerated} test cases!${result.preview ? ' (Preview — not saved)' : ''}`);
+    updateAISelectCount();
+    toast(`QA Architect generated ${result.totalGenerated} test cases!${result.preview ? ' (Preview)' : ''}`);
   } catch (e) { toast(e.message, 'error'); }
   btn.disabled = false; btn.textContent = '🤖 Generate Test Cases';
 }
@@ -932,7 +2136,185 @@ function clearAILab() {
   document.getElementById('aiSourceContent').value = '';
   document.getElementById('dupResults') && (document.getElementById('dupResults').innerHTML = '');
   document.getElementById('riskResults') && (document.getElementById('riskResults').innerHTML = '');
+  window._lastAITests = null;
   toast('AI Lab cleared');
+}
+
+function toggleSingleAITest(el) {
+  const isChecked = el.dataset.checked === 'true';
+  el.dataset.checked = isChecked ? 'false' : 'true';
+  el.textContent = isChecked ? '' : '✓';
+  const card = el.closest('.ai-test-card');
+  if (card) card.style.opacity = isChecked ? '0.5' : '1';
+  updateAISelectCount();
+}
+
+function toggleAllAITests(selectAll) {
+  const boxes = document.querySelectorAll('.ai-test-check');
+  if (!boxes.length) { toast('No tests to select', 'error'); return; }
+  boxes.forEach(el => {
+    el.dataset.checked = selectAll ? 'true' : 'false';
+    el.textContent = selectAll ? '✓' : '';
+    const card = el.closest('.ai-test-card');
+    if (card) card.style.opacity = selectAll ? '1' : '0.5';
+  });
+  updateAISelectCount();
+  const btn = selectAll ? document.getElementById('btnSelectAll') : document.getElementById('btnDeselectAll');
+  if (btn) {
+    const origBg = btn.style.background;
+    btn.style.background = selectAll ? 'var(--accent)' : 'var(--red)';
+    btn.style.color = '#fff';
+    setTimeout(() => { btn.style.background = origBg || ''; btn.style.color = selectAll ? 'var(--accent)' : 'var(--red)'; }, 350);
+  }
+  toast(selectAll ? `All ${boxes.length} tests selected` : 'All tests deselected');
+}
+
+function updateAISelectCount() {
+  const all = document.querySelectorAll('.ai-test-check');
+  const checkedCount = document.querySelectorAll('.ai-test-check[data-checked="true"]').length;
+  const el = document.getElementById('aiSelectedCount');
+  if (el) {
+    el.textContent = `${checkedCount} of ${all.length} tests selected`;
+    el.style.color = checkedCount === 0 ? 'var(--red)' : checkedCount === all.length ? 'var(--green)' : 'var(--text-0)';
+  }
+}
+
+function updateAITestTitle(testKey, newTitle) {
+  if (!window._lastAITests) return;
+  const test = window._lastAITests.tests.find(t => t.test_key === testKey);
+  if (test && newTitle.trim()) test.title = newTitle.trim();
+}
+
+function getSelectedAITests() {
+  if (!window._lastAITests) return [];
+  const checkedKeys = new Set();
+  document.querySelectorAll('.ai-test-check[data-checked="true"]').forEach(cb => checkedKeys.add(cb.dataset.key));
+  return window._lastAITests.tests.filter(t => checkedKeys.has(t.test_key));
+}
+
+function openImportModal(mode) {
+  const selected = getSelectedAITests();
+  if (!selected.length) { toast('Please select at least one test case to import', 'warning'); return; }
+
+  window._importMode = mode || 'suite';
+
+  const flat = [];
+  const flatten = (suites, prefix = '') => suites.forEach(s => { flat.push({ id: s.id, name: prefix + s.name }); if (s.children) flatten(s.children, prefix + s.name + ' > '); });
+  flatten(allSuites);
+
+  const modal = document.getElementById('importTestsModal');
+  document.getElementById('importTestCount').textContent = selected.length;
+  document.getElementById('importExistingSuiteSelect').innerHTML = flat.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('importNewSuiteName').value = 'AI Generated — ' + new Date().toLocaleDateString();
+
+  if (mode === 'run') {
+    document.getElementById('importRunSection').style.display = '';
+    document.getElementById('importRunName').value = 'AI Test Run — ' + new Date().toLocaleDateString();
+    document.getElementById('importModalTitle').textContent = '▶ Import Tests & Create Test Run';
+    document.getElementById('importSubmitBtn').textContent = '▶ Import & Start Run';
+  } else {
+    document.getElementById('importRunSection').style.display = 'none';
+    document.getElementById('importModalTitle').textContent = '📥 Import Tests to Suite';
+    document.getElementById('importSubmitBtn').textContent = '📥 Import Tests';
+  }
+
+  openModal('importTestsModal');
+}
+
+function toggleImportSuiteMode(mode) {
+  document.getElementById('importNewSuiteRow').style.display = mode === 'new' ? '' : 'none';
+  document.getElementById('importExistingSuiteRow').style.display = mode === 'existing' ? '' : 'none';
+}
+
+async function executeImport() {
+  const selected = getSelectedAITests();
+  if (!selected.length) { toast('No tests selected', 'error'); return; }
+
+  const btn = document.getElementById('importSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Importing...';
+
+  const suiteMode = document.querySelector('input[name="importSuiteMode"]:checked')?.value || 'new';
+  let suiteId;
+
+  try {
+    if (suiteMode === 'new') {
+      const name = document.getElementById('importNewSuiteName').value.trim();
+      if (!name) { toast('Please enter a suite name', 'error'); btn.disabled = false; btn.textContent = '📥 Import Tests'; return; }
+      const existingSuite = allSuites.find(s => s.name === name);
+      if (existingSuite) {
+        suiteId = existingSuite.id;
+      } else {
+        const suite = await api('/api/tests/suites', { method: 'POST', body: JSON.stringify({ project_id: projectId, name, icon: '🤖' }) });
+        suiteId = suite.id;
+      }
+    } else {
+      suiteId = document.getElementById('importExistingSuiteSelect').value;
+      if (!suiteId) { toast('Please select a suite', 'error'); btn.disabled = false; btn.textContent = '📥 Import Tests'; return; }
+    }
+
+    const testIds = [];
+    let imported = 0;
+    for (const t of selected) {
+      try {
+        const created = await api('/api/tests/cases', { method: 'POST', body: JSON.stringify({
+          suite_id: suiteId,
+          test_key: t.test_key || `AI-${String(imported + 1).padStart(3, '0')}`,
+          title: t.title,
+          description: t.description || '',
+          preconditions: t.preconditions || '',
+          priority: t.priority || 2,
+          test_type: 'manual',
+          steps: (t.steps || []).map(s => ({ action: s.action, expected_result: s.expected_result || '' }))
+        }) });
+        testIds.push(created.id);
+        imported++;
+      } catch (e) { console.warn('Skip test:', t.test_key, e.message); }
+    }
+
+    if (window._importMode === 'run') {
+      const runName = document.getElementById('importRunName').value.trim() || 'AI Test Run';
+      const env = document.getElementById('importRunEnv').value || 'staging';
+      await api('/api/tests/runs', { method: 'POST', body: JSON.stringify({
+        project_id: projectId, name: runName, environment: env, test_case_ids: testIds
+      }) });
+      toast(`Imported ${imported} tests and created run "${runName}"!`);
+    } else {
+      toast(`Successfully imported ${imported} test cases!`);
+    }
+
+    closeModal('importTestsModal');
+    loadTests(); loadSuiteTree(); loadDashboard();
+
+    if (window._importMode === 'run') {
+      switchPage('tests');
+      setTimeout(() => {
+        document.querySelector('#page-tests .tab-bar button:nth-child(2)')?.click();
+      }, 300);
+    }
+  } catch (e) { toast(e.message, 'error'); }
+
+  btn.disabled = false;
+  btn.textContent = window._importMode === 'run' ? '▶ Import & Start Run' : '📥 Import Tests';
+}
+
+function exportAITestsCSV() {
+  if (!window._lastAITests || !window._lastAITests.tests.length) {
+    toast('No tests to export', 'error');
+    return;
+  }
+  const tests = window._lastAITests.tests;
+  let csv = 'Test Key,Module,Title,Description,Preconditions,Priority,Category,Steps\n';
+  tests.forEach(t => {
+    const steps = (t.steps || []).map((s, i) => `${i+1}. ${s.action} → ${s.expected_result || ''}`).join(' | ');
+    csv += `"${t.test_key}","${t.module || t.section || ''}","${(t.title||'').replace(/"/g,'""')}","${(t.description||'').replace(/"/g,'""')}","${(t.preconditions||'').replace(/"/g,'""')}","${t.priority}","${t.category || ''}","${steps.replace(/"/g,'""')}"\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `qa-tests-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast('CSV exported!');
 }
 
 async function checkDuplicates() {
@@ -993,6 +2375,588 @@ async function loadTeam() {
     const assignSelect = document.getElementById('bugAssign');
     if (assignSelect) assignSelect.innerHTML = '<option value="">Unassigned</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
   } catch (e) { console.error(e); }
+}
+
+// ==================== PROJECT KNOWLEDGE BASE ====================
+
+async function loadProjectKnowledge() {
+  if (!projectId) return;
+  await Promise.all([loadProjectDocuments(), loadGitConnection(), loadJiraConnection(), loadProjectContextStatus()]);
+}
+
+async function loadProjectContextStatus() {
+  if (!projectId) return;
+  try {
+    const ctx = await api(`/api/project/context?project_id=${projectId}`);
+    const el = document.getElementById('projectContextStatus');
+    const banner = document.getElementById('projectKnowledgeBanner');
+    if (ctx.has_context) {
+      const parts = [];
+      if (ctx.document_count > 0) parts.push(`📄 ${ctx.document_count} doc${ctx.document_count > 1 ? 's' : ''}`);
+      if (ctx.git_connected) parts.push('🔗 Git');
+      parts.push(`${ctx.total_words.toLocaleString()} words`);
+      el.innerHTML = `<span style="color:var(--green);">🧠 Active</span> — ${parts.join(' · ')}`;
+      el.style.background = 'var(--green-bg)';
+      el.style.color = 'var(--green)';
+
+      if (banner) banner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="font-size:40px;line-height:1;">🧠</div>
+          <div style="flex:1;">
+            <h3 style="color:var(--green);font-size:16px;margin:0 0 6px 0;">Knowledge Base Active — the AI knows your system</h3>
+            <p style="color:var(--text-2);font-size:13px;margin:0;line-height:1.5;">The AI is using <strong style="color:var(--green);">${ctx.total_words.toLocaleString()} words</strong> from your documents as context. When you go to <strong>AI Lab</strong> and paste a new specification, the AI will generate test cases that understand your system's architecture and business logic.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(63,185,80,0.3);">
+          <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);"><span style="font-size:16px;">✅</span> System docs loaded</div>
+          <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);"><span style="font-size:16px;">✅</span> AI uses this context automatically</div>
+          <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);"><span style="font-size:16px;">✅</span> New specs will reference this</div>
+        </div>`;
+      if (banner) banner.style.background = 'linear-gradient(135deg, rgba(63,185,80,0.12), rgba(31,111,235,0.06))';
+      if (banner) banner.style.borderColor = 'var(--green)';
+    } else {
+      el.textContent = 'No project knowledge configured — upload a document below';
+      el.style.background = 'var(--bg-2)';
+      el.style.color = 'var(--text-3)';
+    }
+  } catch {}
+}
+
+async function loadProjectDocuments() {
+  if (!projectId) return;
+  try {
+    const docs = await api(`/api/project/documents?project_id=${projectId}`);
+    document.getElementById('docCount').textContent = docs.length;
+    const container = document.getElementById('docList');
+
+    if (docs.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:var(--text-3);text-align:center;padding:20px;">No documents uploaded yet. Add a document above to help the AI understand your project.</p>';
+      return;
+    }
+
+    container.innerHTML = docs.map(d => {
+      const typeIcons = { specification: '📋', architecture: '🏗️', api_doc: '🔌', user_guide: '📖', requirements: '📊', release_notes: '🚀', other: '📄' };
+      const icon = typeIcons[d.doc_type] || '📄';
+      const date = new Date(d.created_at).toLocaleDateString();
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:6px;background:var(--bg-2);transition:var(--transition);">
+          <span style="font-size:22px;">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${d.doc_type} · ${(d.word_count || 0).toLocaleString()} words · ${date}${d.uploaded_by_name ? ' · ' + d.uploaded_by_name : ''}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button class="btn btn-sm" onclick="viewDocument('${d.id}')" title="View" style="padding:3px 8px;">👁️</button>
+            <button class="btn btn-sm" onclick="deleteDocument('${d.id}','${d.name.replace(/'/g, "\\'")}')" title="Delete" style="padding:3px 8px;color:var(--red);">🗑️</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) { console.error('Load docs error:', e); }
+}
+
+function showDocInput(mode) {
+  document.getElementById('docPasteSection').style.display = mode === 'paste' ? '' : 'none';
+  document.getElementById('docUploadSection').style.display = mode === 'upload' ? '' : 'none';
+  document.getElementById('docPasteTab').className = mode === 'paste' ? 'btn btn-sm btn-primary' : 'btn btn-sm';
+  document.getElementById('docUploadTab').className = mode === 'upload' ? 'btn btn-sm btn-primary' : 'btn btn-sm';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('docContent');
+  if (ta) ta.addEventListener('input', () => {
+    const words = ta.value.trim().split(/\s+/).filter(Boolean).length;
+    document.getElementById('docWordCount').textContent = words.toLocaleString() + ' words';
+  });
+});
+
+async function saveDocumentText() {
+  const name = document.getElementById('docName').value.trim();
+  const content = document.getElementById('docContent').value.trim();
+  const docType = document.getElementById('docType').value;
+
+  if (!name) { toast('Please enter a document name', 'error'); return; }
+  if (!content) { toast('Please paste document content', 'error'); return; }
+
+  const btn = document.getElementById('saveDocBtn');
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+
+  try {
+    await api('/api/project/documents/text', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId, name, doc_type: docType, content })
+    });
+    toast(`Document "${name}" saved successfully!`, 'success');
+    document.getElementById('docName').value = '';
+    document.getElementById('docContent').value = '';
+    document.getElementById('docWordCount').textContent = '0 words';
+    await loadProjectDocuments();
+    await loadProjectContextStatus();
+  } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false; btn.textContent = '💾 Save Document';
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--border)';
+  e.currentTarget.style.background = 'transparent';
+  const file = e.dataTransfer?.files?.[0];
+  if (file) uploadDocFile(file);
+}
+
+function handleFileSelect(input) {
+  const file = input.files?.[0];
+  if (file) uploadDocFile(file);
+  input.value = '';
+}
+
+async function uploadDocFile(file) {
+  if (file.size > 10 * 1024 * 1024) { toast('File too large (max 10MB)', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('project_id', projectId);
+  formData.append('doc_type', 'specification');
+
+  try {
+    const res = await fetch('/api/project/documents/upload', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Upload failed'); }
+    const doc = await res.json();
+    toast(`File "${file.name}" uploaded — ${(doc.word_count || 0).toLocaleString()} words`, 'success');
+    await loadProjectDocuments();
+    await loadProjectContextStatus();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function viewDocument(id) {
+  try {
+    const doc = await api(`/api/project/documents/${id}`);
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay active';
+    modal.id = 'viewDocModal';
+    modal.innerHTML = `
+      <div class="modal" style="width:700px;max-height:80vh;">
+        <div class="modal-header">
+          <h2>📄 ${doc.name}</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;max-height:60vh;">
+          <div style="display:flex;gap:12px;margin-bottom:12px;">
+            <span class="badge badge-blue">${doc.doc_type}</span>
+            <span style="font-size:12px;color:var(--text-3);">${(doc.word_count || 0).toLocaleString()} words</span>
+          </div>
+          <pre style="background:var(--bg-2);padding:16px;border-radius:var(--radius);font-size:12px;color:var(--text-1);white-space:pre-wrap;word-wrap:break-word;max-height:50vh;overflow-y:auto;line-height:1.6;font-family:inherit;" dir="auto">${doc.content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteDocument(id, name) {
+  if (!confirm(`Delete document "${name}"?\n\nThis will remove it from the project knowledge base.`)) return;
+  try {
+    await api(`/api/project/documents/${id}`, { method: 'DELETE' });
+    toast('Document removed', 'success');
+    await loadProjectDocuments();
+    await loadProjectContextStatus();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ==================== GIT CONNECTION ====================
+
+async function loadGitConnection() {
+  if (!projectId) return;
+  try {
+    const connections = await api(`/api/project/git?project_id=${projectId}`);
+    const statusEl = document.getElementById('gitConnectionStatus');
+    const formEl = document.getElementById('gitConnectForm');
+    const infoEl = document.getElementById('gitRepoInfo');
+
+    if (connections.length > 0) {
+      const conn = connections[0];
+      statusEl.innerHTML = `
+        <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:var(--radius-sm);padding:12px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-size:16px;">✅</span>
+            <strong style="color:var(--green);font-size:13px;">Connected</strong>
+            <span style="font-size:12px;color:var(--text-2);margin-left:auto;">${conn.last_synced ? 'Synced ' + new Date(conn.last_synced).toLocaleString() : 'Not synced yet'}</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-1);font-weight:500;">${conn.repo_owner}/${conn.repo_name}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${conn.provider} · branch: ${conn.branch || 'main'}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-sm btn-primary" onclick="syncGitRepo('${conn.id}')" style="flex:1;">🔄 Sync Now</button>
+            <button class="btn btn-sm" onclick="disconnectGit('${conn.id}')" style="color:var(--red);">Disconnect</button>
+          </div>
+        </div>`;
+      formEl.style.display = 'none';
+
+      if (conn.last_synced) {
+        try {
+          const syncData = await api(`/api/project/git?project_id=${projectId}`);
+          const c = syncData[0];
+          if (c) showGitRepoInfo(c);
+        } catch {}
+      }
+    } else {
+      statusEl.innerHTML = '';
+      formEl.style.display = '';
+      infoEl.style.display = 'none';
+    }
+  } catch (e) { console.error('Git load error:', e); }
+}
+
+function showGitRepoInfo(conn) {
+  const infoEl = document.getElementById('gitRepoInfo');
+  const detailsEl = document.getElementById('gitRepoDetails');
+
+  try {
+    const info = conn.repo_info ? JSON.parse(conn.repo_info) : null;
+    if (!info) { infoEl.style.display = 'none'; return; }
+
+    infoEl.style.display = '';
+    let html = '';
+
+    if (info.description) {
+      html += `<div style="font-size:12px;color:var(--text-1);margin-bottom:10px;padding:8px;background:var(--bg-2);border-radius:var(--radius-sm);">${info.description}</div>`;
+    }
+
+    if (info.languages && Object.keys(info.languages).length > 0) {
+      const langs = Object.entries(info.languages).sort((a, b) => b[1] - a[1]).slice(0, 6);
+      const total = langs.reduce((s, [, v]) => s + v, 0);
+      html += `<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">Languages</div>`;
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+      langs.forEach(([lang, bytes]) => {
+        const pct = Math.round(bytes / total * 100);
+        html += `<span style="font-size:11px;padding:2px 8px;background:var(--accent-muted);color:var(--accent);border-radius:10px;">${lang} ${pct}%</span>`;
+      });
+      html += `</div></div>`;
+    }
+
+    if (info.recentCommits && info.recentCommits.length > 0) {
+      html += `<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:6px;">Recent Commits</div>`;
+      info.recentCommits.slice(0, 5).forEach(c => {
+        html += `<div style="font-size:11px;color:var(--text-1);padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;">
+          <code style="color:var(--accent);font-size:10px;flex-shrink:0;">${c.sha}</code>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.message}</span>
+          <span style="color:var(--text-3);flex-shrink:0;">${c.author}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (info.structure) {
+      const files = info.structure.split('\n').filter(Boolean);
+      html += `<div><div style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:4px;">File Structure (${files.length} files)</div>`;
+      html += `<div style="max-height:150px;overflow-y:auto;background:var(--bg-2);padding:8px;border-radius:var(--radius-sm);font-size:10px;font-family:monospace;color:var(--text-2);line-height:1.6;">`;
+      files.slice(0, 50).forEach(f => { html += f + '\n'; });
+      if (files.length > 50) html += `\n... and ${files.length - 50} more files`;
+      html += `</div></div>`;
+    }
+
+    detailsEl.innerHTML = html || '<p style="font-size:12px;color:var(--text-3);">No details available. Try syncing.</p>';
+  } catch { infoEl.style.display = 'none'; }
+}
+
+async function connectGitRepo() {
+  const url = document.getElementById('gitRepoUrl').value.trim();
+  const branch = document.getElementById('gitBranch').value.trim() || 'main';
+  const token_ = document.getElementById('gitToken').value.trim();
+
+  if (!url) { toast('Please enter a repository URL', 'error'); return; }
+
+  const btn = document.getElementById('gitConnectBtn');
+  btn.disabled = true; btn.textContent = '⏳ Connecting...';
+
+  try {
+    const result = await api('/api/project/git/connect', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId, repo_url: url, branch, access_token: token_ || undefined })
+    });
+
+    if (result.synced) {
+      toast(`Connected to ${result.owner}/${result.name} — repository synced!`, 'success');
+    } else {
+      toast(`Connected to ${result.owner}/${result.name}, but sync failed: ${result.sync_error || 'unknown error'}. You can try syncing later.`, 'warning');
+    }
+
+    document.getElementById('gitRepoUrl').value = '';
+    document.getElementById('gitToken').value = '';
+    await loadGitConnection();
+    await loadProjectContextStatus();
+  } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🔗 Connect Repository';
+}
+
+async function syncGitRepo(connId) {
+  toast('Syncing repository...', 'info');
+  try {
+    await api(`/api/project/git/${connId}/sync`, { method: 'POST' });
+    toast('Repository synced successfully!', 'success');
+    await loadGitConnection();
+    await loadProjectContextStatus();
+  } catch (e) { toast(`Sync failed: ${e.message}`, 'error'); }
+}
+
+async function disconnectGit(connId) {
+  if (!confirm('Disconnect this Git repository?\n\nThe repository info will be removed from the project knowledge base.')) return;
+  try {
+    await api(`/api/project/git/${connId}`, { method: 'DELETE' });
+    toast('Git repository disconnected', 'success');
+    await loadGitConnection();
+    await loadProjectContextStatus();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ==================== JIRA INTEGRATION ====================
+let jiraConnectionId = null;
+let jiraAuthType = 'cloud';
+let jiraIssuesData = [];
+let jiraSelectedKeys = new Set();
+
+function showJiraAuthType(type) {
+  jiraAuthType = type;
+  document.getElementById('jiraCloudForm').style.display = type === 'cloud' ? '' : 'none';
+  document.getElementById('jiraServerForm').style.display = type === 'server' ? '' : 'none';
+  document.getElementById('jiraCloudTab').className = `btn btn-sm ${type === 'cloud' ? 'btn-primary' : ''}`;
+  document.getElementById('jiraServerTab').className = `btn btn-sm ${type === 'server' ? 'btn-primary' : ''}`;
+}
+
+async function loadJiraConnection() {
+  if (!projectId) return;
+  try {
+    const connections = await api(`/api/jira/connections?project_id=${projectId}`);
+    if (connections.length > 0) {
+      const conn = connections[0];
+      jiraConnectionId = conn.id;
+      document.getElementById('jiraConnectedBanner').style.display = '';
+      document.getElementById('jiraConnectForm').style.display = 'none';
+      document.getElementById('jiraBrowser').style.display = '';
+      document.getElementById('jiraConnUserName').textContent = `Connected as ${conn.display_name || 'User'}`;
+      document.getElementById('jiraConnDetails').textContent = `${conn.jira_url} — ${conn.jira_type === 'cloud' ? 'Cloud' : 'Server/DC'}`;
+      await loadJiraProjects();
+    } else {
+      jiraConnectionId = null;
+      document.getElementById('jiraConnectedBanner').style.display = 'none';
+      document.getElementById('jiraConnectForm').style.display = '';
+      document.getElementById('jiraBrowser').style.display = 'none';
+    }
+  } catch (e) { console.error('Load Jira connection error:', e); }
+}
+
+async function connectJira() {
+  const btn = document.getElementById('jiraConnectBtn');
+  btn.disabled = true; btn.textContent = 'Connecting...';
+
+  let url, email, tokenVal, username;
+  if (jiraAuthType === 'cloud') {
+    url = document.getElementById('jiraUrl').value.trim();
+    email = document.getElementById('jiraEmail').value.trim();
+    tokenVal = document.getElementById('jiraToken').value.trim();
+    if (!url || !email || !tokenVal) { toast('Please fill URL, Email, and API Token', 'error'); btn.disabled = false; btn.textContent = '🔷 Connect to Jira'; return; }
+  } else {
+    url = document.getElementById('jiraServerUrl').value.trim();
+    tokenVal = document.getElementById('jiraServerToken').value.trim();
+    if (!url || !tokenVal) { toast('Please fill Server URL and Access Token', 'error'); btn.disabled = false; btn.textContent = '🔷 Connect to Jira'; return; }
+  }
+
+  try {
+    const testResult = await api('/api/jira/test-connection', {
+      method: 'POST',
+      body: JSON.stringify({ url, email, token: tokenVal, username })
+    });
+
+    if (!testResult.connected) throw new Error('Connection failed');
+
+    const saveResult = await api('/api/jira/connect', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId, url, email, token: tokenVal, username })
+    });
+
+    jiraConnectionId = saveResult.id;
+    toast(`Connected to Jira as ${testResult.user?.displayName || 'User'}`, 'success');
+    await loadJiraConnection();
+  } catch (e) {
+    toast(`Jira connection failed: ${e.message}`, 'error');
+  }
+  btn.disabled = false; btn.textContent = '🔷 Connect to Jira';
+}
+
+async function disconnectJira() {
+  if (!jiraConnectionId) return;
+  if (!confirm('Disconnect from Jira?')) return;
+  try {
+    await api(`/api/jira/connections/${jiraConnectionId}`, { method: 'DELETE' });
+    jiraConnectionId = null;
+    toast('Jira disconnected', 'success');
+    await loadJiraConnection();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadJiraProjects() {
+  if (!jiraConnectionId) return;
+  try {
+    const projects = await api(`/api/jira/projects?connection_id=${jiraConnectionId}`);
+    const sel = document.getElementById('jiraProjectSelect');
+    sel.innerHTML = '<option value="">Select a project...</option>';
+    projects.forEach(p => {
+      sel.innerHTML += `<option value="${p.key}">${p.key} — ${p.name}</option>`;
+    });
+  } catch (e) { toast('Failed to load Jira projects: ' + e.message, 'error'); }
+}
+
+async function onJiraProjectChange() {
+  const projectKey = document.getElementById('jiraProjectSelect').value;
+  if (!projectKey) {
+    document.getElementById('jiraIssuesArea').style.display = 'none';
+    return;
+  }
+  try {
+    const types = await api(`/api/jira/issue-types?connection_id=${jiraConnectionId}&project_key=${projectKey}`);
+    const typeFilter = document.getElementById('jiraTypeFilter');
+    typeFilter.innerHTML = '<option value="">All Types</option>';
+    types.filter(t => !t.subtask).forEach(t => {
+      typeFilter.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    });
+    await searchJiraIssues();
+  } catch (e) { console.error(e); await searchJiraIssues(); }
+}
+
+async function searchJiraIssues() {
+  const projectKey = document.getElementById('jiraProjectSelect').value;
+  if (!projectKey || !jiraConnectionId) return;
+
+  const issueType = document.getElementById('jiraTypeFilter').value;
+  const text = document.getElementById('jiraSearchText').value.trim();
+
+  document.getElementById('jiraIssuesArea').style.display = '';
+  document.getElementById('jiraIssuesList').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px;">Loading issues...</div>';
+
+  try {
+    const result = await api('/api/jira/search', {
+      method: 'POST',
+      body: JSON.stringify({ connection_id: jiraConnectionId, project_key: projectKey, issueType: issueType || undefined, text: text || undefined, maxResults: 50 })
+    });
+
+    jiraIssuesData = result.issues || [];
+    jiraSelectedKeys.clear();
+    document.getElementById('jiraIssueCount').textContent = result.total || jiraIssuesData.length;
+    renderJiraIssues();
+  } catch (e) {
+    document.getElementById('jiraIssuesList').innerHTML = `<div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">${e.message}</div>`;
+  }
+}
+
+function renderJiraIssues() {
+  const container = document.getElementById('jiraIssuesList');
+  if (jiraIssuesData.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px;">No issues found for this filter.</div>';
+    updateJiraSelectionUI();
+    return;
+  }
+
+  const typeColors = { 'Epic': '#904EE2', 'Story': '#63BA3C', 'Task': '#4BADE8', 'Bug': '#E5493A', 'Sub-task': '#4BADE8' };
+  const statusColors = { 'done': 'var(--green)', 'indeterminate': 'var(--accent)', 'new': 'var(--text-3)' };
+
+  container.innerHTML = jiraIssuesData.map(issue => {
+    const checked = jiraSelectedKeys.has(issue.key);
+    const typeColor = typeColors[issue.type] || 'var(--text-2)';
+    const stColor = statusColors[issue.statusCategory] || 'var(--text-2)';
+    const prioIcon = { 'Highest': '🔴', 'High': '🟠', 'Medium': '🟡', 'Low': '🟢', 'Lowest': '⚪' }[issue.priority] || '🟡';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--transition);${checked ? 'background:rgba(31,111,235,0.08);' : ''}"
+        onclick="toggleJiraIssue('${issue.key}')" id="jira-row-${issue.key}">
+        <div style="width:20px;height:20px;border-radius:4px;border:2px solid ${checked ? 'var(--accent)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent)' : 'transparent'};transition:var(--transition);flex-shrink:0;">
+          ${checked ? '<span style="color:white;font-size:12px;font-weight:bold;">✓</span>' : ''}
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${typeColor};min-width:50px;text-transform:uppercase;">${issue.type.substring(0, 5)}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--accent);min-width:80px;">${issue.key}</span>
+        <span style="font-size:13px;color:var(--text-0);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${issue.summary}</span>
+        <span style="font-size:11px;">${prioIcon}</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${stColor};color:white;white-space:nowrap;">${issue.status}</span>
+        ${issue.assignee ? `<span style="font-size:11px;color:var(--text-3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${issue.assignee}</span>` : ''}
+      </div>`;
+  }).join('');
+
+  updateJiraSelectionUI();
+}
+
+function toggleJiraIssue(key) {
+  if (jiraSelectedKeys.has(key)) jiraSelectedKeys.delete(key);
+  else jiraSelectedKeys.add(key);
+  renderJiraIssues();
+}
+
+function toggleAllJiraIssues(select) {
+  if (select) {
+    jiraIssuesData.forEach(i => jiraSelectedKeys.add(i.key));
+  } else {
+    jiraSelectedKeys.clear();
+  }
+  renderJiraIssues();
+}
+
+function updateJiraSelectionUI() {
+  const count = jiraSelectedKeys.size;
+  const countEl = document.getElementById('jiraSelectedCount');
+  const numEl = document.getElementById('jiraSelNum');
+  const btn = document.getElementById('jiraGenerateBtn');
+  if (count > 0) {
+    countEl.style.display = '';
+    numEl.textContent = count;
+    btn.disabled = false;
+    btn.textContent = `🤖 Generate Test Cases from ${count} Issue${count > 1 ? 's' : ''}`;
+  } else {
+    countEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = '🤖 Generate Test Cases from Selected Issues';
+  }
+}
+
+async function generateTestsFromJira() {
+  if (jiraSelectedKeys.size === 0) return;
+  const btn = document.getElementById('jiraGenerateBtn');
+  const statusEl = document.getElementById('jiraGenerateStatus');
+  const preview = document.getElementById('jiraPreviewOnly').checked;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating...';
+  statusEl.style.display = '';
+  statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><div class="spinner"></div> Fetching ${jiraSelectedKeys.size} issue(s) and generating test cases with AI... This may take a moment.</div>`;
+
+  try {
+    const result = await api('/api/jira/generate-tests', {
+      method: 'POST',
+      body: JSON.stringify({
+        connection_id: jiraConnectionId,
+        project_id: projectId,
+        issue_keys: Array.from(jiraSelectedKeys),
+        preview
+      })
+    });
+
+    const testCount = result.tests?.length || 0;
+    statusEl.innerHTML = `
+      <div style="color:var(--green);font-weight:600;margin-bottom:8px;">✅ Generated ${testCount} test cases from ${jiraSelectedKeys.size} Jira issue(s)!</div>
+      <div style="font-size:12px;color:var(--text-2);margin-bottom:8px;">Model: ${result.model || 'AI'} | Confidence: ${Math.round((result.confidence || 0) * 100)}%</div>
+      ${result.jiraIssues ? `<div style="font-size:11px;color:var(--text-3);">Sources: ${result.jiraIssues.map(i => `${i.key} (${i.type})`).join(', ')}</div>` : ''}
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="switchPage('ai');toast('Jira-generated tests are shown in AI Lab','info');">View in AI Lab</button>
+        ${!preview ? `<button class="btn btn-sm" onclick="toast('Tests saved. Import them from AI Lab.','info');">Saved</button>` : '<span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;">Preview mode — tests not saved. Uncheck "Preview only" to save.</span>'}
+      </div>`;
+
+    if (result.tests && result.tests.length > 0) {
+      window._lastJiraGeneratedTests = result;
+    }
+  } catch (e) {
+    statusEl.innerHTML = `<div style="color:var(--red);font-weight:600;">❌ Generation failed: ${e.message}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = `🤖 Generate Test Cases from ${jiraSelectedKeys.size} Issue${jiraSelectedKeys.size > 1 ? 's' : ''}`;
 }
 
 // --- Init ---

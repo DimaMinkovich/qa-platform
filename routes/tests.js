@@ -101,10 +101,10 @@ router.post('/cases', auditLog('create', 'test_case'), (req, res) => {
 });
 
 router.put('/cases/:id', auditLog('update', 'test_case'), (req, res) => {
-  const { title, description, preconditions, priority, test_type, is_critical, estimated_time_minutes, tags, steps } = req.body;
+  const { title, description, preconditions, priority, test_type, is_critical, estimated_time_minutes, tags, steps, suite_id } = req.body;
 
-  prepare(`UPDATE test_cases SET title = COALESCE(?, title), description = COALESCE(?, description), preconditions = COALESCE(?, preconditions), priority = COALESCE(?, priority), test_type = COALESCE(?, test_type), is_critical = COALESCE(?, is_critical), estimated_time_minutes = COALESCE(?, estimated_time_minutes), tags = COALESCE(?, tags), updated_at = datetime('now') WHERE id = ?`).run(
-    title, description, preconditions, priority, test_type, is_critical !== undefined ? (is_critical ? 1 : 0) : undefined, estimated_time_minutes, tags ? JSON.stringify(tags) : undefined, req.params.id
+  prepare(`UPDATE test_cases SET title = COALESCE(?, title), description = COALESCE(?, description), preconditions = COALESCE(?, preconditions), priority = COALESCE(?, priority), test_type = COALESCE(?, test_type), is_critical = COALESCE(?, is_critical), estimated_time_minutes = COALESCE(?, estimated_time_minutes), tags = COALESCE(?, tags), suite_id = COALESCE(?, suite_id), updated_at = datetime('now') WHERE id = ?`).run(
+    title, description, preconditions, priority, test_type, is_critical !== undefined ? (is_critical ? 1 : 0) : undefined, estimated_time_minutes, tags ? JSON.stringify(tags) : undefined, suite_id || undefined, req.params.id
   );
 
   if (steps) {
@@ -161,17 +161,83 @@ router.post('/runs', auditLog('create', 'test_run'), (req, res) => {
   res.status(201).json(prepare('SELECT * FROM test_runs WHERE id = ?').get(id));
 });
 
+// --- Check if test case is in an active (incomplete) run ---
+
+router.get('/runs/active-check/:test_case_id', (req, res) => {
+  const activeRuns = prepare(`
+    SELECT tr.run_id, r.name, tr.outcome
+    FROM test_results tr
+    JOIN test_runs r ON tr.run_id = r.id
+    WHERE tr.test_case_id = ?
+      AND (tr.outcome IS NULL OR tr.outcome = 'not_run')
+  `).all(req.params.test_case_id);
+
+  if (activeRuns.length > 0) {
+    const runNames = [...new Set(activeRuns.map(r => r.name))];
+    res.json({ has_active: true, runs: runNames, count: activeRuns.length });
+  } else {
+    res.json({ has_active: false, runs: [], count: 0 });
+  }
+});
+
+// --- Add tests to existing run ---
+
+router.post('/runs/:id/add', auditLog('update', 'test_run'), (req, res) => {
+  const { test_case_ids } = req.body;
+  if (!test_case_ids || !test_case_ids.length) return res.status(400).json({ error: 'test_case_ids required' });
+
+  const existing = prepare('SELECT test_case_id FROM test_results WHERE run_id = ?').all(req.params.id).map(r => r.test_case_id);
+  const insertResult = prepare('INSERT INTO test_results (id, run_id, test_case_id) VALUES (?, ?, ?)');
+  let added = 0;
+  test_case_ids.forEach(tcId => {
+    if (!existing.includes(tcId)) {
+      insertResult.run(uuidv4(), req.params.id, tcId);
+      added++;
+    }
+  });
+
+  res.json({ success: true, added });
+});
+
+// --- Clone Test Case ---
+
+router.post('/cases/:id/clone', auditLog('create', 'test_case'), (req, res) => {
+  const original = prepare('SELECT * FROM test_cases WHERE id = ?').get(req.params.id);
+  if (!original) return res.status(404).json({ error: 'Test case not found' });
+
+  const originalSteps = prepare('SELECT * FROM test_steps WHERE test_case_id = ? ORDER BY step_number').all(req.params.id);
+  const id = uuidv4();
+  const newKey = original.test_key + '-COPY';
+
+  prepare(`INSERT INTO test_cases (id, suite_id, test_key, title, description, preconditions, priority, test_type, is_critical, estimated_time_minutes, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    id, req.body.suite_id || original.suite_id, newKey, `[Copy] ${original.title}`, original.description, original.preconditions, original.priority, original.test_type, original.is_critical, original.estimated_time_minutes, original.tags, req.user.id
+  );
+
+  if (originalSteps.length > 0) {
+    const insertStep = prepare('INSERT INTO test_steps (id, test_case_id, step_number, action, expected_result, test_data) VALUES (?, ?, ?, ?, ?, ?)');
+    originalSteps.forEach(s => insertStep.run(uuidv4(), id, s.step_number, s.action, s.expected_result, s.test_data));
+  }
+
+  const testCase = prepare('SELECT * FROM test_cases WHERE id = ?').get(id);
+  testCase.steps = prepare('SELECT * FROM test_steps WHERE test_case_id = ? ORDER BY step_number').all(id);
+  res.status(201).json(testCase);
+});
+
 // --- Test Results ---
 
 router.get('/results/:run_id', (req, res) => {
   const results = prepare(`
-    SELECT tr.*, tc.test_key, tc.title, tc.priority, tc.is_critical, u.full_name as executed_by_name
+    SELECT tr.*, tc.test_key, tc.title, tc.description, tc.preconditions, tc.priority, tc.is_critical, tc.test_type, u.full_name as executed_by_name
     FROM test_results tr
     JOIN test_cases tc ON tr.test_case_id = tc.id
     LEFT JOIN users u ON tr.executed_by = u.id
     WHERE tr.run_id = ?
     ORDER BY tc.test_key
   `).all(req.params.run_id);
+
+  const stepsStmt = prepare('SELECT * FROM test_steps WHERE test_case_id = ? ORDER BY step_number');
+  results.forEach(r => { r.steps = stepsStmt.all(r.test_case_id); });
+
   res.json(results);
 });
 

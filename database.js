@@ -66,6 +66,53 @@ async function initializeDatabase() {
   database.run(`CREATE TABLE IF NOT EXISTS audit_log (id TEXT PRIMARY KEY, user_id TEXT, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT, details TEXT, ip_address TEXT, created_at TEXT DEFAULT (datetime('now')))`);
   database.run(`CREATE TABLE IF NOT EXISTS dashboard_metrics (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, metric_type TEXT NOT NULL, metric_data TEXT NOT NULL, calculated_at TEXT DEFAULT (datetime('now')))`);
 
+  database.run(`CREATE TABLE IF NOT EXISTS project_documents (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    doc_type TEXT NOT NULL DEFAULT 'specification',
+    content TEXT NOT NULL,
+    summary TEXT,
+    word_count INTEGER DEFAULT 0,
+    uploaded_by TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  database.run(`CREATE TABLE IF NOT EXISTS jira_connections (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    jira_url TEXT NOT NULL,
+    jira_type TEXT DEFAULT 'cloud',
+    email TEXT,
+    access_token TEXT,
+    username TEXT,
+    display_name TEXT,
+    is_active INTEGER DEFAULT 1,
+    last_synced TEXT,
+    created_by TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  database.run(`CREATE TABLE IF NOT EXISTS project_git_connections (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'github',
+    repo_url TEXT NOT NULL,
+    repo_owner TEXT,
+    repo_name TEXT,
+    branch TEXT DEFAULT 'main',
+    access_token TEXT,
+    last_synced TEXT,
+    repo_info TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_by TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Indexes
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_tc_suite ON test_cases(suite_id)',
@@ -75,6 +122,9 @@ async function initializeDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_bugs_st ON bugs(status)',
     'CREATE INDEX IF NOT EXISTS idx_ie_int ON integration_events(integration_id)',
     'CREATE INDEX IF NOT EXISTS idx_bh_bug ON bug_history(bug_id)',
+    'CREATE INDEX IF NOT EXISTS idx_jc_proj ON jira_connections(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_pd_proj ON project_documents(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_pgc_proj ON project_git_connections(project_id)',
   ];
   indexes.forEach(idx => database.run(idx));
 

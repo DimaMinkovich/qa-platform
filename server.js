@@ -20,6 +20,8 @@ async function start() {
   app.use('/api/integrations', require('./routes/integrations'));
   app.use('/api/dashboard', require('./routes/dashboard'));
   app.use('/api/ai', require('./routes/ai'));
+  app.use('/api/project', require('./routes/project'));
+  app.use('/api/jira', require('./routes/jira'));
 
   app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.0.0', uptime: process.uptime() }));
 
